@@ -109,7 +109,7 @@ export default function ResultPage() {
         return (
             <div className="min-h-screen flex items-stretch">
                 <Sidebar />
-                <div className="flex-1 ml-64 flex flex-col items-center justify-center bg-background/20 backdrop-blur-sm p-4 text-center">
+                <div className="flex-1 md:ml-64 flex flex-col items-center justify-center bg-background/20 backdrop-blur-sm p-4 text-center">
                     <div className="p-4 rounded-full bg-destructive/10 text-destructive mb-4">
                         <ArrowLeft className="w-8 h-8" />
                     </div>
@@ -129,7 +129,7 @@ export default function ResultPage() {
 
             <Sidebar />
 
-            <div className="flex-1 ml-64 flex flex-col min-h-screen">
+            <div className="flex-1 md:ml-64 flex flex-col min-h-screen">
                 <Header title={result?.metadata?.title} url={result?.url} favicon={result?.metadata?.favicon} />
 
                 <main className="flex-1 max-w-[2000px] w-full mx-auto p-4 lg:p-6 xl:p-8">

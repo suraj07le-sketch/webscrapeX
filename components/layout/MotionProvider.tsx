@@ -18,8 +18,7 @@ export function MotionProvider({ children }: { children: React.ReactNode }) {
             gestureOrientation: 'vertical',
             smoothWheel: true,
             wheelMultiplier: 1,
-            smoothTouch: false,
-            touchMultiplier: 2,
+
             infinite: false,
         });
 

@@ -35,20 +35,24 @@ export function HistoryCard({ item }: { item: ScrapeHistoryItem }) {
                     <CardContent className="p-5 space-y-4">
                         <div className="flex items-center justify-between gap-3">
                             <div className="flex items-center gap-3 overflow-hidden">
-                                {item.metadata?.favicon ? (
-                                    <img
-                                        src={item.metadata.favicon}
-                                        alt=""
-                                        className="w-10 h-10 rounded-lg shadow-sm bg-background/50 p-1"
-                                        onError={(e) => {
-                                            (e.target as HTMLImageElement).src = '/favicon.ico';
-                                        }}
-                                    />
-                                ) : (
-                                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                                        <ExternalLink className="w-5 h-5 text-primary" />
-                                    </div>
-                                )}
+                                <img
+                                    src={item.metadata?.favicon || `https://www.google.com/s2/favicons?domain=${new URL(item.url).hostname}&sz=128`}
+                                    alt=""
+                                    className="w-10 h-10 rounded-lg shadow-sm bg-background/50 p-1 object-contain"
+                                    onError={(e) => {
+                                        const target = e.target as HTMLImageElement;
+                                        if (!target.src.includes('google.com')) {
+                                            target.src = `https://www.google.com/s2/favicons?domain=${new URL(item.url).hostname}&sz=128`;
+                                        } else {
+                                            target.style.display = 'none';
+                                            target.nextElementSibling?.classList.remove('hidden');
+                                        }
+                                    }}
+                                />
+                                {/* Fallback Icon */}
+                                <div className="hidden w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                                    <ExternalLink className="w-5 h-5 text-primary" />
+                                </div>
                                 <div className="overflow-hidden">
                                     <h3 className="font-bold text-base truncate leading-tight group-hover:text-primary transition-colors">
                                         {item.metadata?.title &&

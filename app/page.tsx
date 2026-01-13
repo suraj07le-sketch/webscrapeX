@@ -95,32 +95,32 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen relative overflow-x-hidden flex flex-col items-center pt-24 pb-12 px-4 scroll-smooth">
+    <main className="min-h-screen relative overflow-x-hidden flex flex-col items-center pt-20 pb-12 px-4 scroll-smooth">
       <DynamicBackground colors={[]} />
 
       {/* Hero Section */}
-      <section className="w-full max-w-7xl z-10 flex flex-col items-center mb-24">
+      <section className="w-full max-w-7xl z-10 flex flex-col items-center mb-20 md:mb-24">
         <ScrollFadeIn direction="up">
-          <div className="text-center mb-12 flex flex-col items-center w-full max-w-5xl relative">
+          <div className="text-center mb-10 md:mb-12 flex flex-col items-center w-full max-w-5xl relative">
             <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-primary/20 blur-[120px] rounded-full -z-10 animate-pulse" />
 
             <MotionDiv
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ duration: 0.5 }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-md mb-8 text-[11px] font-bold uppercase tracking-[0.2em] text-primary/80"
+              className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-md mb-6 md:mb-8 text-[10px] md:text-[11px] font-bold uppercase tracking-[0.2em] text-primary/80"
             >
               <Zap className="w-3 h-3 fill-current" />
               Intelligence Driven Extraction
             </MotionDiv>
 
-            <h1 className="text-5xl md:text-6xl lg:text-[7rem] font-black tracking-tighter mb-8 leading-[0.85] bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/40 py-2">
+            <h1 className="text-4xl md:text-6xl lg:text-[7rem] font-black tracking-tighter mb-6 md:mb-8 leading-[0.9] md:leading-[0.85] bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/40 py-2">
               <TextReveal text="Design" />
               <TextReveal text="Intelligence." />
             </h1>
 
             <ScrollFadeIn delay={0.2}>
-              <p className="text-lg md:text-xl text-muted-foreground/60 max-w-2xl mx-auto leading-relaxed font-medium">
+              <p className="text-base md:text-xl text-muted-foreground/60 max-w-xl md:max-w-2xl mx-auto leading-relaxed font-medium">
                 Deconstruct any website's design system in seconds. <br className="hidden md:block" />
                 Colors, fonts, assets, and code — extracted and analyzed.
               </p>
@@ -128,34 +128,34 @@ export default function Home() {
           </div>
         </ScrollFadeIn>
 
-        <ScrollFadeIn delay={0.4} className="w-full max-w-3xl mb-24">
+        <ScrollFadeIn delay={0.4} className="w-full max-w-3xl mb-20 md:mb-24">
           <div className="relative group">
             <div className="absolute -inset-1 bg-gradient-to-r from-primary/50 to-purple-600/50 rounded-[2.5rem] blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
-            <div className="relative backdrop-blur-3xl bg-background/60 border border-white/10 p-2 rounded-[2.5rem] shadow-2xl">
+            <div className="relative backdrop-blur-3xl bg-background/60 border border-white/10 p-2 rounded-[2rem] md:rounded-[2.5rem] shadow-2xl">
               <form onSubmit={handleScrape} className="relative flex items-center">
-                <div className="absolute left-8 text-muted-foreground/40">
-                  <Search className="w-6 h-6" />
+                <div className="absolute left-4 md:left-8 text-muted-foreground/40">
+                  <Search className="w-5 h-5 md:w-6 md:h-6" />
                 </div>
                 <Input
                   type="url"
                   placeholder="https://example.com"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
-                  className="pl-20 pr-8 h-20 text-xl font-medium rounded-[2rem] bg-transparent border-none focus-visible:ring-0 placeholder:text-muted-foreground/30 selection:bg-primary/20 text-left"
+                  className="pl-12 md:pl-20 pr-16 md:pr-48 h-14 md:h-20 text-sm md:text-xl font-medium rounded-[1.5rem] md:rounded-[2rem] bg-transparent border-none focus-visible:ring-0 placeholder:text-muted-foreground/30 selection:bg-primary/20 text-left"
                   required
                 />
-                <div className="absolute right-3">
+                <div className="absolute right-2 md:right-3 top-1/2 -translate-y-1/2">
                   <AnimatedButton
                     type="submit"
                     variant="sweep"
-                    className="h-18 px-10 text-lg shadow-[0_0_20px_rgba(var(--primary),0.3)]"
+                    className="h-10 md:h-16 px-3 md:px-10 text-xs md:text-lg shadow-[0_0_20px_rgba(var(--primary),0.3)] rounded-[1.2rem] md:rounded-[1.5rem]"
                     disabled={loading}
                   >
                     {loading ? (
                       <Loader2 className="h-6 w-6 animate-spin" />
                     ) : (
-                      <div className="flex items-center gap-2">
-                        <span>Capture</span>
+                      <div className="flex items-center gap-0 md:gap-2">
+                        <span className="hidden md:inline">Capture</span>
                         <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                       </div>
                     )}
@@ -204,13 +204,13 @@ export default function Home() {
       </section>
 
       {/* Parallax Image Section (Visual Polish) */}
-      <section className="w-full max-w-6xl mb-32 relative overflow-hidden rounded-[4rem] group">
+      <section className="w-full max-w-6xl mb-20 md:mb-32 relative overflow-hidden rounded-[2rem] md:rounded-[4rem] group">
         <ParallaxWrapper offset={80}>
-          <div className="h-[600px] w-full bg-gradient-to-br from-primary/20 via-background to-purple-500/20 relative">
-            <div className="absolute inset-0 flex items-center justify-center p-20">
+          <div className="h-[400px] md:h-[600px] w-full bg-gradient-to-br from-primary/20 via-background to-purple-500/20 relative">
+            <div className="absolute inset-0 flex items-center justify-center p-8 md:p-20">
               <div className="text-center">
-                <h2 className="text-6xl font-black mb-6">Built for speed.</h2>
-                <p className="text-xl text-muted-foreground max-w-lg mx-auto">Experience the fastest design extraction engine ever built. No more manual devtools inspection.</p>
+                <h2 className="text-4xl md:text-6xl font-black mb-4 md:mb-6">Built for speed.</h2>
+                <p className="text-base md:text-xl text-muted-foreground max-w-lg mx-auto">Experience the fastest design extraction engine ever built. No more manual devtools inspection.</p>
               </div>
             </div>
             {/* Mesh gradient decor */}

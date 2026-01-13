@@ -1,7 +1,18 @@
 'use client';
 
 import { motion, useScroll, useSpring } from 'framer-motion';
-import { ThemeToggle } from '@/components/ThemeToggle';
+import { ThemeToggle } from "@/components/ThemeToggle";
+import {
+    Sheet,
+    SheetContent,
+    SheetTrigger,
+    SheetTitle,
+    SheetDescription,
+} from "@/components/ui/sheet";
+import { SidebarContent } from "./Sidebar";
+import { Menu } from "lucide-react";
+
+
 import { Command, Search, Zap, LogIn, UserPlus, LogOut, Shield, ChevronDown } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -45,13 +56,33 @@ export function Navbar() {
                 isScrolled ? 'bg-background/80 backdrop-blur-md border-white/10 py-4' : 'bg-transparent py-6'
             )}
         >
-            <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
-                <Link href="/" className="flex items-center gap-2 group cursor-pointer">
-                    <div className="p-2 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
-                        <Zap className="w-5 h-5 text-primary" />
+            <div className="max-w-7xl mx-auto px-6 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                    {/* Mobile Menu Trigger */}
+                    <div className="md:hidden">
+                        <Sheet>
+                            <SheetTrigger asChild>
+                                <button className="p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors">
+                                    <Menu className="w-5 h-5 text-muted-foreground" />
+                                </button>
+                            </SheetTrigger>
+                            <SheetContent side="left" className="p-0 border-r border-white/10 w-[80%] max-w-[300px] bg-background">
+                                <SheetTitle className="sr-only">Mobile Navigation Menu</SheetTitle>
+                                <SheetDescription className="sr-only">
+                                    Navigation links for WebScrapeX mobile interface.
+                                </SheetDescription>
+                                <SidebarContent />
+                            </SheetContent>
+                        </Sheet>
                     </div>
-                    <span className="text-xl font-black tracking-tighter">WEBSCRAPEX</span>
-                </Link>
+
+                    <Link href="/" className="flex items-center gap-2 group cursor-pointer">
+                        <div className="p-2 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                            <Zap className="w-5 h-5 text-primary" />
+                        </div>
+                        <span className="text-xl font-black tracking-tighter">WEBSCRAPEX</span>
+                    </Link>
+                </div>
 
                 <div className="hidden md:flex items-center gap-8 text-sm font-medium text-muted-foreground">
                     <a href="#" className="hover:text-foreground transition-colors">Features</a>
@@ -65,7 +96,7 @@ export function Navbar() {
                     )}
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 sm:gap-4">
                     <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-muted-foreground">
                         <Command className="w-3 h-3" />
                         <span>K</span>
@@ -107,15 +138,16 @@ export function Navbar() {
                             ) : (
                                 <div className="flex items-center gap-2">
                                     <Link href="/login">
-                                        <button className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-muted-foreground hover:text-foreground transition-colors">
+                                        <button className="hidden sm:flex items-center gap-2 px-4 py-2 text-sm font-bold text-muted-foreground hover:text-foreground transition-colors">
                                             <LogIn className="w-4 h-4" />
                                             Login
                                         </button>
                                     </Link>
                                     <Link href="/signup">
-                                        <button className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity">
+                                        <button className="flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity">
                                             <UserPlus className="w-4 h-4" />
-                                            Sign Up
+                                            <span className="hidden sm:inline">Sign Up</span>
+                                            <span className="sm:hidden">Join</span>
                                         </button>
                                     </Link>
                                 </div>

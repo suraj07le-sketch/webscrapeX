@@ -47,7 +47,7 @@ export default function CollectionsPage() {
             <DynamicBackground colors={[]} />
             <Sidebar />
 
-            <div className="flex-1 ml-64 p-8 lg:p-12 overflow-y-auto">
+            <div className="flex-1 md:ml-64 p-4 md:p-8 overflow-y-auto">
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
