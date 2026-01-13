@@ -1,26 +1,8 @@
+import scrape from 'website-scraper';
+import PuppeteerPlugin from 'website-scraper-puppeteer';
+import path from 'path';
+import fs from 'fs/promises';
 import puppeteer from 'puppeteer-core';
-
-// ... imports ...
-
-// Inside scrapeWebsite function:
-await log('Launching deep-analysis browser (Hybrid Mode)...');
-
-let browser;
-if (process.env.BROWSER_WS_ENDPOINT) {
-    await log(`Connecting to remote browser...`);
-    browser = await puppeteer.connect({
-        browserWSEndpoint: process.env.BROWSER_WS_ENDPOINT,
-    });
-} else {
-    await log('No remote browser configured (PUPPETEER_CORE active). Skipping deep (JS) analysis.', 'warning');
-    // Throw to fall back to static scraping
-    throw new Error('No BROWSER_WS_ENDPOINT configured for production scraping.');
-}
-
-// Removing the old launch block entirely for now to save space in this replacement
-/* 
-const browser = await puppeteer.launch({ ...old args... }) 
-*/
 import { supabase } from './supabase';
 import { extractMetadata } from './extractors/meta';
 import { extractColors } from './extractors/colors';
@@ -46,92 +28,122 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
         try {
             await log('Launching deep-analysis browser (Hybrid Mode)...');
 
-            const browser = await puppeteer.launch({
-                headless: true,
-                protocolTimeout: 60000,
-                args: [
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--ignore-certificate-errors',
-                    '--disable-web-security',
-                    '--disable-features=IsolateOrigins,site-per-process'
-                ]
-            });
-            const page = await browser.newPage();
-            await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36');
+            let browser;
+            let executablePath = process.env.CHROME_EXECUTABLE_PATH;
 
-            await log(`Navigating to ${url}...`);
-            try {
-                await page.goto(url, { waitUntil: 'networkidle2', timeout: 45000 });
-            } catch (e) {
-                await log('Navigation timeout reached, proceeding with partial load...', 'warning');
+            // Auto-detect local Chrome if not explicitly set
+            if (!executablePath && !process.env.BROWSER_WS_ENDPOINT) {
+                const commonPaths = [
+                    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+                    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+                    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+                    '/usr/bin/google-chrome',
+                    '/usr/bin/chromium-browser'
+                ];
+                for (const p of commonPaths) {
+                    try {
+                        await fs.access(p);
+                        executablePath = p;
+                        await log(`Detected local Chrome at: ${p}`);
+                        break;
+                    } catch { }
+                }
             }
 
-            // Scroll to trigger lazy loading
-            await log('Scrolling to trigger lazy loading...');
-            await page.evaluate(async () => {
-                await new Promise<void>((resolve) => {
-                    let totalHeight = 0;
-                    let distance = 200;
-                    let timer = setInterval(() => {
-                        let scrollHeight = document.body.scrollHeight;
-                        window.scrollBy(0, distance);
-                        totalHeight += distance;
-                        if (totalHeight >= scrollHeight || totalHeight > 5000) { // Cap at 5000px
-                            clearInterval(timer);
-                            resolve();
-                        }
-                    }, 100);
+            if (process.env.BROWSER_WS_ENDPOINT) {
+                await log(`Connecting to remote browser...`);
+                browser = await puppeteer.connect({
+                    browserWSEndpoint: process.env.BROWSER_WS_ENDPOINT,
                 });
-            });
+            } else if (executablePath) {
+                await log(`Launching local Chrome from ${executablePath}...`);
+                browser = await puppeteer.launch({
+                    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+                    executablePath: executablePath,
+                    headless: true
+                });
+            } else {
+                await log('No remote or local browser found. Deep analysis skipped (Missing images/fonts).', 'warning');
+                await log('To fix locally: Ensure Chrome is installed.', 'info');
+            }
 
-            await log('Performing deep DOM extraction (Colors, Fonts, Images)...');
-            deepFindings = await page.evaluate(() => {
-                const colors = new Set<string>();
-                const fonts = new Set<string>();
-                const images = new Set<string>();
+            if (browser) {
+                const page = await browser.newPage();
+                await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36');
 
-                // Sample elements for colors and fonts
-                const allElements = document.querySelectorAll('*');
-                const sampleSize = Math.min(allElements.length, 1000);
-                for (let i = 0; i < sampleSize; i++) {
-                    const el = allElements[i];
-                    const style = window.getComputedStyle(el);
-
-                    // Colors
-                    if (style.color && style.color.startsWith('rgb')) colors.add(style.color);
-                    if (style.backgroundColor && style.backgroundColor.startsWith('rgb') && style.backgroundColor !== 'rgba(0, 0, 0, 0)') {
-                        colors.add(style.backgroundColor);
-                    }
-
-                    // Fonts
-                    if (style.fontFamily) {
-                        const firstFont = style.fontFamily.split(',')[0].trim().replace(/['"]/g, '');
-                        if (firstFont && firstFont !== 'inherit') fonts.add(firstFont);
-                    }
-
-                    // Background Images
-                    if (style.backgroundImage && style.backgroundImage !== 'none') {
-                        const match = style.backgroundImage.match(/url\(["']?([^"']+)["']?\)/);
-                        if (match) images.add(match[1]);
-                    }
+                await log(`Navigating to ${url}...`);
+                try {
+                    await page.goto(url, { waitUntil: 'networkidle2', timeout: 45000 });
+                } catch (e) {
+                    await log('Navigation timeout reached, proceeding with partial load...', 'warning');
                 }
 
-                // Regular Images
-                document.querySelectorAll('img').forEach(img => {
-                    if (img.src) images.add(img.src);
+                // Scroll to trigger lazy loading
+                await log('Scrolling to trigger lazy loading...');
+                await page.evaluate(async () => {
+                    await new Promise<void>((resolve) => {
+                        let totalHeight = 0;
+                        let distance = 200;
+                        let timer = setInterval(() => {
+                            let scrollHeight = document.body.scrollHeight;
+                            window.scrollBy(0, distance);
+                            totalHeight += distance;
+                            if (totalHeight >= scrollHeight || totalHeight > 5000) { // Cap at 5000px
+                                clearInterval(timer);
+                                resolve();
+                            }
+                        }, 100);
+                    });
                 });
 
-                return {
-                    colors: Array.from(colors),
-                    fonts: Array.from(fonts),
-                    images: Array.from(images)
-                };
-            });
+                await log('Performing deep DOM extraction (Colors, Fonts, Images)...');
+                deepFindings = await page.evaluate(() => {
+                    const colors = new Set<string>();
+                    const fonts = new Set<string>();
+                    const images = new Set<string>();
 
-            liveHtml = await page.content();
-            await browser.close();
-            await log(`Live analysis complete. Found ${deepFindings.colors.length} colors, ${deepFindings.fonts.length} fonts, and ${deepFindings.images.length} images.`);
+                    // Sample elements for colors and fonts
+                    const allElements = document.querySelectorAll('*');
+                    const sampleSize = Math.min(allElements.length, 1000);
+                    for (let i = 0; i < sampleSize; i++) {
+                        const el = allElements[i];
+                        const style = window.getComputedStyle(el);
+
+                        // Colors
+                        if (style.color && style.color.startsWith('rgb')) colors.add(style.color);
+                        if (style.backgroundColor && style.backgroundColor.startsWith('rgb') && style.backgroundColor !== 'rgba(0, 0, 0, 0)') {
+                            colors.add(style.backgroundColor);
+                        }
+
+                        // Fonts
+                        if (style.fontFamily) {
+                            const firstFont = style.fontFamily.split(',')[0].trim().replace(/['"]/g, '');
+                            if (firstFont && firstFont !== 'inherit') fonts.add(firstFont);
+                        }
+
+                        // Background Images
+                        if (style.backgroundImage && style.backgroundImage !== 'none') {
+                            const match = style.backgroundImage.match(/url\(["']?([^"']+)["']?\)/);
+                            if (match) images.add(match[1]);
+                        }
+                    }
+
+                    // Regular Images
+                    document.querySelectorAll('img').forEach(img => {
+                        if (img.src) images.add(img.src);
+                    });
+
+                    return {
+                        colors: Array.from(colors),
+                        fonts: Array.from(fonts),
+                        images: Array.from(images)
+                    };
+                });
+
+                liveHtml = await page.content();
+                await browser.close();
+                await log(`Live analysis complete. Found ${deepFindings.colors.length} colors, ${deepFindings.fonts.length} fonts, and ${deepFindings.images.length} images.`);
+            }
         } catch (e: any) {
             await log(`Deep analysis partially failed: ${e.message}. Falling back to static pass...`, 'warning');
         }
@@ -141,21 +153,11 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
         await fs.mkdir(path.dirname(scrapeDir), { recursive: true });
 
         await log('Archiving assets to disk (Second Pass)...');
+
         const options = {
             urls: [url],
             directory: scrapeDir,
             urlFilter: () => true,
-            plugins: [
-                new PuppeteerPlugin({
-                    launchOptions: {
-                        headless: "new",
-                        args: ['--no-sandbox', '--disable-setuid-sandbox', '--ignore-certificate-errors', '--disable-web-security'],
-                    },
-                    scrollToBottom: { timeout: 10000, viewportN: 5 },
-                    waitUntil: 'networkidle2',
-                    timeout: 60000, // Increase navigation timeout for the archive pass
-                })
-            ],
         };
 
         let result = [];
@@ -176,8 +178,15 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
         }
 
         if (!htmlContent) {
-            await log('No HTML content could be retrieved. Using minimal fallback.', 'warning');
-            htmlContent = `<html><head><title>${url}</title></head><body><p>Scrape failed to retrieve content for ${url}</p></body></html>`;
+            // Fallback to fetching HTML text directly if Puppeteer/Archive failed
+            try {
+                const resp = await fetch(url);
+                htmlContent = await resp.text();
+                await log('Fetched static HTML content as fallback.');
+            } catch (e) {
+                await log('No HTML content could be retrieved. Using minimal error page.', 'warning');
+                htmlContent = `<html><head><title>${url}</title></head><body><p>Scrape failed to retrieve content for ${url}</p></body></html>`;
+            }
         }
 
         // Process Everything
@@ -233,7 +242,7 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
                 img.url = new URL(img.url, url).href;
             }
             return img;
-        }).slice(0, 50);
+        }).slice(0, 100);
 
         for (const img of topImages) {
             try {
