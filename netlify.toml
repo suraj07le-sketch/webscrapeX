@@ -9,4 +9,4 @@
   package = "@netlify/plugin-nextjs"
 
 [functions]
-  included_files = ["!node_modules/puppeteer/.local-chromium/**"]
+  included_files = ["!node_modules/puppeteer/.local-chromium/**", "!tmp/**"]

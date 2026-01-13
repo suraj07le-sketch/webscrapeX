@@ -1,5 +1,3 @@
-import scrape from 'website-scraper';
-import PuppeteerPlugin from 'website-scraper-puppeteer';
 import path from 'path';
 import fs from 'fs/promises';
 import puppeteer from 'puppeteer-core';
@@ -11,8 +9,6 @@ import { detectTechnologies } from './extractors/tech';
 import { extractContent } from './extractors/content';
 import { ScrapeResult } from './scraper-types';
 
-// We need to disable strict type checking for website-scraper as it doesn't have perfect types
-const runScrape = scrape as any;
 const supabaseClient = supabase as any;
 
 export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResult> {
@@ -24,11 +20,11 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
     try {
         let deepFindings = { colors: [] as string[], fonts: [] as string[], images: [] as string[] };
         let liveHtml = '';
+        let browser;
 
         try {
             await log('Launching deep-analysis browser (Hybrid Mode)...');
 
-            let browser;
             let executablePath = process.env.CHROME_EXECUTABLE_PATH;
 
             // Auto-detect local Chrome if not explicitly set
@@ -145,46 +141,23 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
                 await log(`Live analysis complete. Found ${deepFindings.colors.length} colors, ${deepFindings.fonts.length} fonts, and ${deepFindings.images.length} images.`);
             }
         } catch (e: any) {
-            await log(`Deep analysis partially failed: ${e.message}. Falling back to static pass...`, 'warning');
+            await log(`Deep analysis partially failed: ${e.message}`, 'warning');
+            if (browser) await browser.close();
         }
 
         const scrapeDir = path.resolve(process.cwd(), 'tmp', 'scrapes', id);
-        // website-scraper will create the directory, we just ensure the parent exists
-        await fs.mkdir(path.dirname(scrapeDir), { recursive: true });
-
-        await log('Archiving assets to disk (Second Pass)...');
-
-        const options = {
-            urls: [url],
-            directory: scrapeDir,
-            urlFilter: () => true,
-        };
-
-        let result = [];
-        try {
-            result = await runScrape(options);
-            await log(`Archived ${result.length} resources.`);
-        } catch (e: any) {
-            await log(`Archiving pass failed or timed out: ${e.message}. Processing deep findings only...`, 'warning');
-        }
 
         let htmlContent = liveHtml;
-        if (!htmlContent && result.length > 0 && result[0].filename) {
-            try {
-                htmlContent = await fs.readFile(path.join(scrapeDir, result[0].filename), 'utf-8');
-            } catch (e) {
-                await log('Failed to read archived index file.', 'warning');
-            }
-        }
 
         if (!htmlContent) {
             // Fallback to fetching HTML text directly if Puppeteer/Archive failed
             try {
-                const resp = await fetch(url);
+                await log('Fetching static HTML content as fallback...');
+                const resp = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+                if (!resp.ok) throw new Error(`Status ${resp.status}`);
                 htmlContent = await resp.text();
-                await log('Fetched static HTML content as fallback.');
-            } catch (e) {
-                await log('No HTML content could be retrieved. Using minimal error page.', 'warning');
+            } catch (e: any) {
+                await log(`Static fetch failed: ${e.message}. Using minimal error page.`, 'warning');
                 htmlContent = `<html><head><title>${url}</title></head><body><p>Scrape failed to retrieve content for ${url}</p></body></html>`;
             }
         }
@@ -195,34 +168,12 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
         const technologies = detectTechnologies(htmlContent, deepFindings.colors.join(' '));
 
         const mergedImages: any[] = deepFindings.images.filter(u => u && !u.startsWith('data:')).map(url => ({ url, size: 0 }));
+        // Note: Without website-scraper, we don't have separate CSS/JS files downloaded. 
+        // We could extract them from HTML links if needed, but for now we focus on the requested "images".
         const cssFiles: any[] = [];
         const jsFiles: any[] = [];
         const rawAssets: any[] = [];
         const linksSet = new Set<string>();
-
-        // Merge archived assets
-        for (const res of result) {
-            const filename = res.filename;
-            const absPath = path.join(scrapeDir, filename);
-            const ext = path.extname(filename).split('?')[0].toLowerCase();
-
-            let stats;
-            try { stats = await fs.stat(absPath); } catch { continue; }
-
-            rawAssets.push({
-                website_id: id,
-                file_type: ext.substring(1) || 'other',
-                local_path: absPath,
-                url: res.url,
-                size_bytes: stats.size,
-            });
-
-            if (ext === '.css' || filename.includes('.css')) {
-                cssFiles.push({ name: filename, size: stats.size });
-            } else if (ext.includes('.js')) {
-                jsFiles.push({ name: filename, size: stats.size });
-            }
-        }
 
         // Extract Links from rendered HTML
         const contentData = extractContent(htmlContent, url);
