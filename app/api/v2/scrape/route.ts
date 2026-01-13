@@ -36,10 +36,15 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Database failed', details: error.message }, { status: 500 });
         }
 
-        // Detach scraper
-        setImmediate(() => {
-            scrapeWebsite(id, url).catch(err => console.error('Scraper V2 Error:', err));
-        });
+        // Await scraper to prevent Vercel from freezing the process
+        // This ensures data exists before we return
+        try {
+            await scrapeWebsite(id, url);
+        } catch (err) {
+            console.error('Scraper V2 Error:', err);
+            // We still return 200 if DB insert worked, but status will be 'failed' 
+            // The UI handles 'failed' status via polling or checks
+        }
 
         return NextResponse.json({ id, message: 'Scrape initiated via v2' });
 

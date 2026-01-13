@@ -49,7 +49,7 @@ export async function middleware(req: NextRequest) {
         data: { session },
     } = await supabase.auth.getSession();
 
-    const url = new URL(req.url);
+    // const url = new URL(req.url); // Already declared above
 
     // Whitelist public routes
     if (url.pathname === '/' || url.pathname.startsWith('/api/') || url.pathname.startsWith('/auth/')) {
