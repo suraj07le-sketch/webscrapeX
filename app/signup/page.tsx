@@ -6,6 +6,8 @@ import { SocialAuth } from '@/components/auth/SocialAuth';
 import { DynamicBackground } from '@/components/ui/DynamicBackground';
 import Link from 'next/link';
 
+import { Suspense } from 'react';
+
 export default function SignUpPage() {
     return (
         <main className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden bg-[#050505]">
@@ -21,7 +23,11 @@ export default function SignUpPage() {
                 title="Join WebScrapeX"
                 subtitle="Start extracting design intelligence today"
             >
-                <SignUpForm />
+                <div className="min-h-[200px] flex items-center justify-center">
+                    <Suspense fallback={<div className="w-full text-center p-4">Loading...</div>}>
+                        <SignUpForm />
+                    </Suspense>
+                </div>
 
                 <div className="mt-6 text-center">
                     <p className="text-xs font-medium text-muted-foreground/40 uppercase tracking-widest">
