@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
-    LayoutDashboard,
+    Home,
     History,
     Settings,
     Search,
@@ -17,7 +17,7 @@ export function SidebarContent() {
     const pathname = usePathname();
 
     const menuItems = [
-        { name: 'Dashboard', icon: LayoutDashboard, href: pathname.includes('/result/') ? pathname : '/' },
+        { name: 'Home', icon: Home, href: pathname.includes('/result/') ? pathname : '/' },
         { name: 'Collections', icon: History, href: '/collections' },
         { name: 'API Access', icon: Zap, href: '/api-access' },
         { name: 'Settings', icon: Settings, href: '/settings' },
@@ -40,7 +40,7 @@ export function SidebarContent() {
             {/* Navigation Menu */}
             <nav className="overflow-y-auto px-4 space-y-1 py-2 flex-1">
                 {menuItems.map((item) => {
-                    const isActive = pathname === item.href || (item.name === 'Dashboard' && pathname.includes('/result/'));
+                    const isActive = pathname === item.href || (item.name === 'Home' && pathname.includes('/result/'));
                     return (
                         <Link key={item.name} href={item.href}>
                             <div className={cn(

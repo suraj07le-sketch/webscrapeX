@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, Variants } from 'framer-motion';
 import { Input } from '@/components/ui/input';
 import { Loader2, Search, Zap, Code2, Palette, FileImage, LayoutGrid, Clock, ArrowRight } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { createBrowserClient } from '@supabase/auth-helpers-nextjs';
 import { DynamicBackground } from '@/components/ui/DynamicBackground';
 import { HistoryCard } from '@/components/HistoryCard';
 import { ScrollFadeIn, TextReveal, MotionDiv, ParallaxWrapper, ImageReveal } from '@/components/ui/MotionWrappers';
@@ -15,7 +15,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { IconGlow } from '@/components/ui/PremiumAnimations';
 
 export default function Home() {
-  const { user } = useAuth();
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+  const { user, session } = useAuth();
   const searchParams = useSearchParams();
   const [url, setUrl] = useState(searchParams.get('scrape') || '');
   const [loading, setLoading] = useState(false);
@@ -75,8 +79,12 @@ export default function Home() {
       console.log('Sending capture request to API v2...');
       const res = await fetch('/api/v2/scrape', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
         body: JSON.stringify({ url }),
+        credentials: 'include', // Force sending cookies
       });
 
       if (res.status === 401) {
@@ -180,7 +188,7 @@ export default function Home() {
       </section>
 
       {/* Feature Section */}
-      <section className="w-full max-w-7xl z-10 px-4 mb-32">
+      <section id="features" className="w-full max-w-7xl z-10 px-4 mb-32">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <ScrollFadeIn delay={0.1}>
             <AnimatedCard variant="glass">

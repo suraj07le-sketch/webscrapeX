@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { supabase } from '@/lib/supabase';
+import { createBrowserClient } from '@supabase/auth-helpers-nextjs';
+import { useAuth } from '@/hooks/useAuth';
 import { DynamicBackground } from '@/components/ui/DynamicBackground';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { HistoryCard } from '@/components/HistoryCard';
@@ -10,11 +11,20 @@ import { ScrollFadeIn } from '@/components/ui/MotionWrappers';
 import { History, LayoutGrid, Clock, Calendar } from 'lucide-react';
 
 export default function CollectionsPage() {
+    const { session } = useAuth();
     const [history, setHistory] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
+    // Create authenticated client
+    const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+
     useEffect(() => {
         const fetchHistory = async () => {
+            if (!session?.user) return; // Wait for session
+
             const { data, error } = await supabase
                 .from('websites')
                 .select(`
@@ -23,24 +33,45 @@ export default function CollectionsPage() {
                     created_at,
                     metadata (
                         title,
-                        favicon,
-                        color_palette
+                        favicon
+                    ),
+                    assets (
+                        url
                     )
                 `)
+                .eq('user_id', session.user.id)
                 .eq('status', 'completed')
                 .order('created_at', { ascending: false });
 
             if (!error && data) {
                 setHistory(data.map((item: any) => ({
                     ...item,
-                    metadata: Array.isArray(item.metadata) ? item.metadata[0] : item.metadata
+                    metadata: Array.isArray(item.metadata) ? item.metadata[0] : item.metadata,
+                    thumbnail: item.assets?.[0]?.url || (Array.isArray(item.metadata) ? item.metadata[0]?.favicon : item.metadata?.favicon) || null
                 })));
             }
             setLoading(false);
         };
 
-        fetchHistory();
-    }, []);
+        if (session) {
+            fetchHistory();
+        }
+    }, [session]);
+
+    const handleDelete = async (id: string) => {
+        setHistory(prev => prev.filter(item => item.id !== id));
+
+        const { error } = await supabase
+            .from('websites')
+            .delete()
+            .eq('id', id)
+            .eq('user_id', session?.user?.id); // Extra safety
+
+        if (error) {
+            console.error('Delete failed:', error);
+            // Optionally revert state here if needed, but optimistic UI is better
+        }
+    };
 
     return (
         <div className="min-h-screen bg-transparent font-sans relative flex items-stretch overflow-x-hidden text-foreground">
@@ -65,7 +96,7 @@ export default function CollectionsPage() {
                         </p>
                     </div>
 
-                    <div className="flex items-center gap-6 border-b border-white/10 pb-4 text-xs font-bold uppercase tracking-widest text-muted-foreground/40">
+                    <div className="flex items-center gap-6 border-b border-white/10 pb-4 text-xs font-bold uppercase tracking-widest text-muted-foreground/70">
                         <div className="flex items-center gap-2">
                             <LayoutGrid className="w-4 h-4" />
                             <span>{history.length} Total Items</span>
@@ -86,7 +117,7 @@ export default function CollectionsPage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                             {history.map((item, idx) => (
                                 <ScrollFadeIn key={item.id} delay={idx * 0.05}>
-                                    <HistoryCard item={item} />
+                                    <HistoryCard item={item} onDelete={handleDelete} />
                                 </ScrollFadeIn>
                             ))}
                         </div>

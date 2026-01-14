@@ -34,7 +34,7 @@ export function Navbar() {
         restDelta: 0.001
     });
 
-    const isResultPage = pathname.includes('/result/') || pathname.includes('/api-access') || pathname.includes('/settings') || pathname.includes('/collections');
+    const isResultPage = pathname.includes('/result/') || pathname.includes('/api-access') || pathname.includes('/settings') || pathname.includes('/collections') || pathname.includes('/docs');
 
     useEffect(() => {
         const handleScroll = () => {
@@ -84,12 +84,14 @@ export function Navbar() {
                     </Link>
                 </div>
 
-                <div className="hidden md:flex items-center gap-8 text-sm font-medium text-muted-foreground">
-                    <a href="#" className="hover:text-foreground transition-colors">Features</a>
-                    <a href="#" className="hover:text-foreground transition-colors">Showcase</a>
-                    <a href="#" className="hover:text-foreground transition-colors">Docs</a>
+                <div className="hidden md:flex items-center gap-6 text-sm font-medium text-muted-foreground">
+                    <Link href="/collections" className="hover:text-foreground transition-colors">Collections</Link>
+                    <Link href="/api-access" className="hover:text-foreground transition-colors">API</Link>
+                    <Link href="/settings" className="hover:text-foreground transition-colors">Settings</Link>
+                    <a href="#features" className="hover:text-foreground transition-colors">Features</a>
+                    <Link href="/docs" className="hover:text-foreground transition-colors">Docs</Link>
                     {isAdmin && (
-                        <Link href="/admin" className="text-primary font-bold flex items-center gap-1.5 hover:opacity-80 transition-opacity">
+                        <Link href="/admin" className="text-primary font-bold flex items-center gap-1.5 hover:opacity-80 transition-opacity ml-2">
                             <Shield className="w-4 h-4" />
                             Admin
                         </Link>

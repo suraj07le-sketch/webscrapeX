@@ -23,4 +23,4 @@ export const supabaseAdmin = serviceRoleKey
             persistSession: false
         }
     })
-    : supabase; // Fallback to anon (will fail if RLS blocks, but better than crash)
+    : null; // Do NOT fallback to anon, so we can check if admin is available

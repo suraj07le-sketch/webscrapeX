@@ -16,6 +16,8 @@ export async function POST(req: NextRequest) {
 
     // Identify user from server-side session
     const cookieStore = await cookies();
+    console.log('>>> V2 Cookies:', cookieStore.getAll().map(c => c.name));
+
     const supabaseAuth = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -25,16 +27,39 @@ export async function POST(req: NextRequest) {
                     return cookieStore.get(name)?.value;
                 },
                 set(name: string, value: string, options: any) {
-                    cookieStore.set({ name, value, ...options });
+                    try {
+                        cookieStore.set({ name, value, ...options });
+                    } catch (e) {
+                        // Handle case where we can't set cookies in this context
+                    }
                 },
                 remove(name: string, options: any) {
-                    cookieStore.set({ name, value: '', ...options });
+                    try {
+                        cookieStore.set({ name, value: '', ...options });
+                    } catch (e) {
+                        // Handle case where we can't set cookies in this context
+                    }
                 },
             },
         }
     );
 
-    const { data: { session } } = await supabaseAuth.auth.getSession();
+    let { data: { session } } = await supabaseAuth.auth.getSession();
+    console.log('>>> V2 Session User (Cookie):', session?.user?.email);
+
+    // Fallback to Header Auth if cookie failed
+    if (!session) {
+        const authHeader = req.headers.get('authorization');
+        if (authHeader) {
+            const token = authHeader.replace('Bearer ', '');
+            const { data: { user }, error } = await supabaseAuth.auth.getUser(token);
+            if (user && !error) {
+                console.log('>>> V2 Session User (Header):', user.email);
+                // Mock a session object since we have a user
+                session = { user } as any;
+            }
+        }
+    }
 
     if (!session) {
         return NextResponse.json({ error: 'Unauthorized. Please log in.' }, { status: 401 });
@@ -51,8 +76,8 @@ export async function POST(req: NextRequest) {
         // Generate ID manually (bypass schema select)
         const id = crypto.randomUUID();
 
-        // Use guest-friendly insert (no user_id)
-        const { error } = await (supabase as any)
+        // Use AUTHENTICATED client to insert (ensures RLS respects user_id)
+        const { error } = await supabaseAuth
             .from('websites')
             .insert({
                 id,

@@ -79,7 +79,7 @@ export function CommandMenu() {
                     <CommandGroup heading="Core Actions" className="px-2 pb-4">
                         <CommandItem onSelect={() => runCommand(() => router.push('/'))} className="rounded-xl p-3 aria-selected:bg-primary/10 aria-selected:text-primary transition-all cursor-pointer">
                             <Home className="mr-3 h-5 w-5" />
-                            <span className="font-bold">Return to Dashboard</span>
+                            <span className="font-bold">Return to Home</span>
                         </CommandItem>
                     </CommandGroup>
                     <CommandSeparator className="bg-white/5" />

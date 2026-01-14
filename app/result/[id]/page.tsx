@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+import { createBrowserClient } from '@supabase/auth-helpers-nextjs';
 import { Loader2, ArrowLeft, Download, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrapeResult } from '@/lib/scraper-types';
+import { useAuth } from '@/hooks/useAuth';
 
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
@@ -32,6 +33,11 @@ import { FloatingExportButton } from '@/components/FloatingExportButton';
 export default function ResultPage() {
     const { id } = useParams() as { id: string };
     const router = useRouter();
+    const { session } = useAuth();
+    const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
     const [result, setResult] = useState<ScrapeResult | null>(null);
     const [status, setStatus] = useState<string>('pending');
     const [error, setError] = useState<string | null>(null);
@@ -47,16 +53,27 @@ export default function ResultPage() {
 
             try {
                 // Poll for status first
-                const { data: webData } = await (supabase.from('websites').select('status, url').eq('id', id).single() as any);
+                const { data: webData } = await supabase.from('websites').select('status, url').eq('id', id).single();
                 if (webData) {
                     setStatus(webData.status);
 
                     if (webData.status === 'completed') {
                         // Fetch the full result.json via API
-                        const res = await fetch(`/api/scrape/content?id=${id}`);
+                        const res = await fetch(`/api/scrape/content?id=${id}`, {
+                            credentials: 'include',
+                            headers: {
+                                'Authorization': `Bearer ${session?.access_token}`
+                            }
+                        });
 
                         if (res.status === 401 || res.status === 403) {
                             router.push('/login');
+                            router.push('/login');
+                            return;
+                        }
+
+                        if (!res.ok) {
+                            setError('Data missing. This scrape may have failed to save. Please try scraping again.');
                             return;
                         }
 
@@ -197,7 +214,7 @@ export default function ResultPage() {
                     </AnimatePresence>
                 </main>
             </div>
-            <FloatingExportButton />
+            <FloatingExportButton data={result} />
         </div>
     );
 }

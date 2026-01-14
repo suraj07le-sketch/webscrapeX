@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Verify Session
+    // Verify Session
     const cookieStore = await cookies();
     const supabaseAuth = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -24,49 +25,85 @@ export async function GET(req: NextRequest) {
                     return cookieStore.get(name)?.value;
                 },
                 set(name: string, value: string, options: any) {
-                    cookieStore.set({ name, value, ...options });
+                    try { cookieStore.set({ name, value, ...options }); } catch (e) { }
                 },
                 remove(name: string, options: any) {
-                    cookieStore.set({ name, value: '', ...options });
+                    try { cookieStore.set({ name, value: '', ...options }); } catch (e) { }
                 },
             },
         }
     );
-    const { data: { session } } = await supabaseAuth.auth.getSession();
+    let { data: { session } } = await supabaseAuth.auth.getSession();
+
+    // Fallback to Header Auth
+    if (!session) {
+        const authHeader = req.headers.get('authorization');
+        if (authHeader) {
+            const token = authHeader.replace('Bearer ', '');
+            const { data: { user }, error } = await supabaseAuth.auth.getUser(token);
+            if (user && !error) {
+                session = { user } as any;
+            }
+        }
+    }
 
     if (!session) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     try {
-        const client = (supabaseAdmin || supabase) as any;
+        // Use Admin client if available (bypasses RLS), otherwise use the Authenticated User client
+        // DO NOT use vanilla 'supabase' because it lacks the session context!
+        const client = supabaseAdmin || supabaseAuth;
 
-        // Check ownership first
-        const { data: website, error: webError } = await (supabase as any)
+        // Check ownership first - use client here too for consistency!
+        const { data: websiteData, error: webError } = await client
             .from('websites')
-            .select('url, user_id')
+            .select('id, url, user_id')
             .eq('id', id)
             .single();
 
+        const website = websiteData as any;
+
         if (webError || !website) {
+            console.error('Website 404:', { id, webError });
             return NextResponse.json({ error: 'Website not found' }, { status: 404 });
         }
 
         if (website.user_id !== session.user.id) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            console.error('Forbidden Access Debug:', {
+                websiteId: website.id,
+                websiteOwner: website.user_id,
+                sessionUser: session.user.id,
+                sessionEmail: session.user.email,
+                clientType: supabaseAdmin ? 'Admin' : 'AuthenticatedUser'
+            });
+            return NextResponse.json({
+                error: 'Forbidden',
+                debug: { expected: website.user_id, actual: session.user.id }
+            }, { status: 403 });
         }
 
         // Fetch Metadata
-        const { data: metadata, error: metaError } = await client
+        const { data: rawMetadata, error: metaError } = await client
             .from('metadata')
             .select('*')
             .eq('website_id', id)
             .single();
 
+        const metadata = rawMetadata as any; // Cast to any to prevent TS errors
+
         if (metaError || !metadata) {
-            console.error('Supabase Fetch Error:', metaError);
+            console.error('Metadata 404:', { id, metaError });
             return NextResponse.json({ error: 'Content not found' }, { status: 404 });
         }
+
+        // Fetch Images from Assets table
+        const { data: imageAssets } = await client
+            .from('assets')
+            .select('url')
+            .eq('website_id', id)
+            .eq('file_type', 'image');
 
         // Reconstruct the ScrapeResult shape as best as possible from DB
         const result = {
@@ -74,12 +111,14 @@ export async function GET(req: NextRequest) {
             metadata: {
                 title: metadata.title || '',
                 description: metadata.description || '',
-                keywords: metadata.keywords || [],
+                keywords: Array.isArray(metadata.keywords)
+                    ? metadata.keywords
+                    : (typeof metadata.keywords === 'string' ? metadata.keywords.split(',').map((k: string) => k.trim()).filter((k: string) => k.length > 0) : []),
                 favicon: metadata.favicon || ''
             },
             colors: metadata.color_palette || [],
             fonts: metadata.fonts || [],
-            images: (metadata.images || []).map((url: string) => ({ url })),
+            images: (imageAssets || []).map((asset: any) => ({ url: asset.url })),
             technologies: metadata.technologies || [],
             // These fields might be empty if not stored in DB, but this prevents the 500 crash
             cssFiles: [],

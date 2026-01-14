@@ -53,7 +53,7 @@ export function ColorPaletteCard({ colors }: { colors: string[] }) {
                 </div>
             </CardHeader>
             <CardContent className="p-8 pt-2">
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                     {colors.map((color, i) => (
                         <motion.button
                             key={i}
@@ -63,10 +63,10 @@ export function ColorPaletteCard({ colors }: { colors: string[] }) {
                             whileHover={{ scale: 1.1, y: -5 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => copyToClipboard(color)}
-                            className="group relative flex flex-col items-center gap-2"
+                            className="group relative flex flex-col items-center gap-2 focus:outline-none"
                         >
                             <div
-                                className="w-full aspect-square rounded-[1rem] shadow-lg border-2 border-white/10 group-hover:border-primary/50 transition-colors relative overflow-hidden"
+                                className="w-full aspect-square rounded-[1rem] shadow-lg border-2 border-white/10 group-hover:border-primary group-focus:border-primary transition-all duration-300 relative overflow-hidden"
                                 style={{ backgroundColor: color }}
                             >
                                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 bg-black/40 backdrop-blur-[2px]">

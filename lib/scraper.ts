@@ -244,8 +244,8 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
         };
 
         // Save Findings to Supabase
-        await log('Saving analysis results to database...');
-        await supabaseClient.from('metadata').insert({
+        await log(`Saving analysis results to database... (Client: ${supabaseAdmin ? 'Admin' : 'Anon'})`);
+        const { error: metaError } = await supabaseClient.from('metadata').insert({
             website_id: id,
             title: finalResult.metadata.title,
             description: finalResult.metadata.description,
@@ -254,8 +254,37 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
             color_palette: finalResult.colors,
             fonts: finalResult.fonts,
             technologies: finalResult.technologies,
-            images: persistentImages, // Save permanent URLs
+            // images: persistentImages, // REMOVED: Column missing in DB schema causing crash
         });
+
+        if (metaError) {
+            await log(`Metadata insert failed: ${metaError.message}`, 'error');
+            throw new Error(`Metadata DB Error: ${metaError.message}`);
+        }
+
+        // Save images to assets table
+        const finalImagesToSave = persistentImages.length > 0
+            ? persistentImages
+            : topImages.map(img => img.url);
+
+        if (finalImagesToSave.length > 0) {
+            const imageAssets = finalImagesToSave.map((imgUrl: string) => ({
+                website_id: id,
+                file_type: 'image',
+                url: imgUrl,
+                created_at: new Date().toISOString()
+            }));
+
+            const { error: assetsError } = await supabaseClient
+                .from('assets')
+                .insert(imageAssets);
+
+            if (assetsError) {
+                await log(`Failed to save image assets: ${assetsError.message}`, 'warning');
+            } else {
+                await log(`Saved ${persistentImages.length} images to assets table`, 'success');
+            }
+        }
 
         if (rawAssets.length > 0) {
             await supabaseClient.from('assets').insert(rawAssets);
