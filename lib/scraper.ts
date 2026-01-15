@@ -17,6 +17,9 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
         await supabaseClient.from('logs').insert({ website_id: id, message, type });
     };
 
+    const startTime = Date.now();
+    const isServerless = !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_VERSION);
+
     try {
         let deepFindings = { colors: [] as string[], fonts: [] as string[], images: [] as string[] };
         let liveHtml = '';
@@ -148,21 +151,26 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
 
                 // Scroll to trigger lazy loading (FASTER)
                 await log('Scrolling to trigger lazy loading...');
-                await page.evaluate(async () => {
+                // Scroll to trigger lazy loading (FASTER)
+                await log('Scrolling to trigger lazy loading...');
+                await page.evaluate(async (isServerless) => {
                     await new Promise<void>((resolve) => {
                         let totalHeight = 0;
                         let distance = 300; // Faster scroll
+                        // On Vercel, scroll less to save time/memory
+                        const maxScroll = isServerless ? 10000 : 15000;
+
                         let timer = setInterval(() => {
                             let scrollHeight = document.body.scrollHeight;
                             window.scrollBy(0, distance);
                             totalHeight += distance;
-                            if (totalHeight >= scrollHeight || totalHeight > 15000) {
+                            if (totalHeight >= scrollHeight || totalHeight > maxScroll) {
                                 clearInterval(timer);
                                 resolve();
                             }
-                        }, 100); // Fast interval (100ms) - finishes 15000px in ~5 seconds
+                        }, 100);
                     });
-                });
+                }, isServerless);
 
                 await log('Performing deep DOM extraction (Colors, Fonts, Images)...');
                 // Reduced wait
@@ -318,13 +326,23 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
 
         // Process Images & Upload to Supabase Storage
         await log('Uploading top images to persistent storage...');
+
+        // Safety: If we are running out of time (Vercel max 60s), skip heavy uploads
+        const elapsed = (Date.now() - startTime) / 1000;
+        const timeRemaining = 60 - elapsed;
+        const safeImageLimit = (isServerless && timeRemaining < 20) ? 20 : (isServerless ? 50 : 100);
+
+        if (timeRemaining < 10) {
+            await log(`Time critical (${Math.round(timeRemaining)}s left). Skipping image downloads to save data.`, 'warning');
+        }
+
         const persistentImages: string[] = [];
         const topImages = mergedImages.map(img => {
             if (img.url.startsWith('/')) {
                 img.url = new URL(img.url, url).href;
             }
             return img;
-        }).slice(0, 100);
+        }).slice(0, safeImageLimit);
 
         for (const img of topImages) {
             try {
