@@ -173,52 +173,77 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
                     const fonts = new Set<string>();
                     const images = new Set<string>();
 
-                    // Sample elements for colors and fonts
-                    const allElements = document.querySelectorAll('*');
-                    const sampleSize = Math.min(allElements.length, 1000);
-                    for (let i = 0; i < sampleSize; i++) {
-                        const el = allElements[i];
-                        const style = window.getComputedStyle(el);
+                    // --- SHADOW DOM "AGENT" ---
+                    // recursively find ALL elements including Shadow DOM
+                    function getAllElements(root: Document | ShadowRoot | Element = document): Element[] {
+                        const all: Element[] = [];
+                        // Get all children in this root
+                        const nodes = Array.from(root.querySelectorAll('*'));
 
-                        // Colors
-                        if (style.color && style.color.startsWith('rgb')) colors.add(style.color);
-                        if (style.backgroundColor && style.backgroundColor.startsWith('rgb') && style.backgroundColor !== 'rgba(0, 0, 0, 0)') {
-                            colors.add(style.backgroundColor);
-                        }
-
-                        // Fonts
-                        if (style.fontFamily) {
-                            const firstFont = style.fontFamily.split(',')[0].trim().replace(/['"]/g, '');
-                            if (firstFont && firstFont !== 'inherit') fonts.add(firstFont);
-                        }
-
-                        // Background Images
-                        if (style.backgroundImage && style.backgroundImage !== 'none') {
-                            const match = style.backgroundImage.match(/url\(["']?([^"']+)["']?\)/);
-                            if (match) images.add(match[1]);
-                        }
+                        nodes.forEach(node => {
+                            all.push(node);
+                            // Recursively check for shadow root
+                            if (node.shadowRoot) {
+                                all.push(...getAllElements(node.shadowRoot));
+                            }
+                        });
+                        return all;
                     }
 
-                    // Regular Images & Lazy Loading Support
-                    document.querySelectorAll('img').forEach(img => {
-                        // Priority order for image source
-                        const src = img.getAttribute('src') ||
-                            img.getAttribute('data-src') ||
-                            img.getAttribute('data-original') ||
-                            img.getAttribute('data-lazy-src');
+                    const allElements = getAllElements();
+                    const sampleSize = Math.min(allElements.length, 2000); // Increased sample size
 
-                        if (src && !src.startsWith('data:')) {
-                            images.add(src);
+                    for (let i = 0; i < allElements.length; i++) {
+                        const el = allElements[i];
+
+                        // Limit style checks to first 2000 elements for performance
+                        if (i < 2000) {
+                            const style = window.getComputedStyle(el);
+
+                            // Colors
+                            if (style.color && style.color.startsWith('rgb')) colors.add(style.color);
+                            if (style.backgroundColor && style.backgroundColor.startsWith('rgb') && style.backgroundColor !== 'rgba(0, 0, 0, 0)') {
+                                colors.add(style.backgroundColor);
+                            }
+
+                            // Fonts
+                            if (style.fontFamily) {
+                                const firstFont = style.fontFamily.split(',')[0].trim().replace(/['"]/g, '');
+                                if (firstFont && firstFont !== 'inherit') fonts.add(firstFont);
+                            }
+
+                            // Background Images
+                            if (style.backgroundImage && style.backgroundImage !== 'none') {
+                                const match = style.backgroundImage.match(/url\(["']?([^"']+)["']?\)/);
+                                if (match) images.add(match[1]);
+                            }
                         }
 
-                        // Parse srcset if available
-                        if (img.srcset) {
-                            const candidates = img.srcset.split(',').map(s => s.trim().split(' ')[0]);
-                            candidates.forEach(url => {
-                                if (url && !url.startsWith('data:')) images.add(url);
-                            });
+                        // Image Elements (check ALL, not just sample)
+                        if (el.tagName.toLowerCase() === 'img') {
+                            const img = el as HTMLImageElement;
+                            const src = img.getAttribute('src') ||
+                                img.getAttribute('data-src') ||
+                                img.getAttribute('data-original') ||
+                                img.currentSrc; // Use currentSrc as the ultimate truth
+
+                            if (src && !src.startsWith('data:')) images.add(src);
+
+                            // Srcset parsing
+                            if (img.srcset) {
+                                img.srcset.split(',').map(s => s.trim().split(' ')[0]).forEach(url => {
+                                    if (url && !url.startsWith('data:')) images.add(url);
+                                });
+                            }
                         }
-                    });
+
+                        // SVGs (common in AI sites like Pucho)
+                        if (el.tagName.toLowerCase() === 'svg' || el.tagName.toLowerCase() === 'image') {
+                            // sometimes SVGs reference images via href/xlink:href
+                            const href = el.getAttribute('href') || el.getAttribute('xlink:href');
+                            if (href && !href.startsWith('data:')) images.add(href);
+                        }
+                    }
 
                     // background-images from all elements (computed style is expensive, so we do it selectively if needed)
                     // The previous sample loop checks computed styles, so we keep that.
