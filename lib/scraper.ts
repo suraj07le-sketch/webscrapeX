@@ -153,7 +153,7 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
                 await log('Scrolling to trigger lazy loading...');
                 // Scroll to trigger lazy loading (FASTER)
                 await log('Scrolling to trigger lazy loading...');
-                await page.evaluate(async (isServerless) => {
+                await page.evaluate(async (isServerless: boolean) => {
                     await new Promise<void>((resolve) => {
                         let totalHeight = 0;
                         let distance = 300; // Faster scroll
