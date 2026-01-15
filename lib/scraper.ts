@@ -463,6 +463,23 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
         await fs.mkdir(scrapeDir, { recursive: true });
         await fs.writeFile(path.join(scrapeDir, 'result.json'), JSON.stringify(finalResult, null, 2));
 
+        // CRITICAL FIX FOR VERCEL: Upload the full result.json to Storage so it persists!
+        try {
+            await log('Persisting full result.json to Storage...');
+            const jsonBuffer = Buffer.from(JSON.stringify(finalResult, null, 2));
+            const { error: jsonUploadError } = await supabaseClient.storage
+                .from('scrapes')
+                .upload(`${id}/result.json`, jsonBuffer, { contentType: 'application/json', upsert: true });
+
+            if (jsonUploadError) {
+                await log(`Failed to upload result.json: ${jsonUploadError.message}`, 'warning');
+            } else {
+                await log('Successfully persisted full result data.', 'success');
+            }
+        } catch (e: any) {
+            await log(`Error uploading result.json: ${e.message}`, 'warning');
+        }
+
         // Update main status
         await supabaseClient.from('websites').update({
             status: 'completed',

@@ -105,7 +105,23 @@ export async function GET(req: NextRequest) {
             .eq('website_id', id)
             .eq('file_type', 'image');
 
-        // Reconstruct the ScrapeResult shape as best as possible from DB
+        // 1. Try to fetch the full result.json from Storage (Best Source)
+        try {
+            const { data: jsonData, error: downloadError } = await client.storage
+                .from('scrapes')
+                .download(`${id}/result.json`);
+
+            if (jsonData && !downloadError) {
+                const text = await jsonData.text();
+                const fullResult = JSON.parse(text);
+                return NextResponse.json(fullResult);
+            }
+        } catch (e) {
+            // Ignore storage fetch error, fallback to DB
+            console.log('Storage lookup failed, falling back to DB...');
+        }
+
+        // 2. Fallback: Reconstruct from DB (Legacy/Backup)
         const result = {
             url: website?.url || '',
             metadata: {
