@@ -195,7 +195,7 @@ export default function ResultPage() {
                                     <MetadataCard metadata={result.metadata} />
                                 </motion.div>
                                 <motion.div id="insights" variants={itemVariants} className="2xl:col-span-2">
-                                    <InsightsCard colors={result.colors} techs={result.technologies} metadata={result.metadata} />
+                                    <InsightsCard colors={result.colors} techs={result.technologies} metadata={result.metadata} designIntelligence={result.designIntelligence} />
                                 </motion.div>
                                 <motion.div variants={itemVariants}>
                                     <TechCard techs={result.technologies} />

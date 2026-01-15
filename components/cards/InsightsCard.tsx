@@ -11,9 +11,14 @@ interface InsightsProps {
         title: string;
         description: string;
     };
+    designIntelligence?: {
+        visualCohesion: string;
+        technicalMaturity: string;
+        seoReadiness: number;
+    };
 }
 
-export function InsightsCard({ colors, techs, metadata }: InsightsProps) {
+export function InsightsCard({ colors, techs, metadata, designIntelligence }: InsightsProps) {
     // Basic heuristics for "Design Style"
     const isDark = colors.some(c => {
         const lower = c.toLowerCase();
@@ -21,11 +26,15 @@ export function InsightsCard({ colors, techs, metadata }: InsightsProps) {
     });
 
     const isMinimal = colors.length < 5 && techs.includes('Tailwind CSS');
-    const seoScore = (metadata.title ? 40 : 0) + (metadata.description ? 40 : 0) + (metadata.title.length > 50 ? 20 : 0);
+
+    // Use backend data if available, otherwise heuristic
+    const seoScore = designIntelligence?.seoReadiness ?? ((metadata.title ? 40 : 0) + (metadata.description ? 40 : 0) + (metadata.title.length > 50 ? 20 : 0));
+    const visualValue = designIntelligence?.visualCohesion ?? (colors.length > 5 ? 'Vibrant' : 'Unified');
+    const techValue = designIntelligence?.technicalMaturity ?? (techs.length > 3 ? 'Advanced' : 'Modern');
 
     const stages = [
-        { label: 'Visual Cohesion', value: colors.length > 5 ? 'Vibrant' : 'Unified', icon: Sparkles, color: 'text-blue-500' },
-        { label: 'Technical Maturity', value: techs.length > 3 ? 'Advanced' : 'Modern', icon: Gauge, color: 'text-purple-500' },
+        { label: 'Visual Cohesion', value: visualValue, icon: Sparkles, color: 'text-blue-500' },
+        { label: 'Technical Maturity', value: techValue, icon: Gauge, color: 'text-purple-500' },
         { label: 'SEO Readiness', value: `${seoScore}%`, icon: ShieldCheck, color: 'text-emerald-500' },
     ];
 
