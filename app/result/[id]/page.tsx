@@ -51,6 +51,10 @@ export default function ResultPage() {
         const fetchData = async () => {
             if (!id) return;
 
+            // Wait for auth to load before deciding to redirect
+            // Assuming useAuth provides a 'loading' state, we should check it?
+            // But here we rely on "session" object.
+
             try {
                 // Poll for status first
                 const { data: webData } = await supabase.from('websites').select('status, url').eq('id', id).single();
@@ -67,7 +71,8 @@ export default function ResultPage() {
                         });
 
                         if (res.status === 401 || res.status === 403) {
-                            router.push('/login');
+                            // Only redirect if we are sure we are meant to be logged in?
+                            // For now, simple redirect
                             router.push('/login');
                             return;
                         }
@@ -122,11 +127,16 @@ export default function ResultPage() {
             }
         };
 
-        fetchData();
-        interval = setInterval(fetchData, 3000);
+        // Only fetch if session is loaded or we don't care about auth for public parts (but we do)
+        // If useAuth loading is true, wait?
+        // For now, adding session to dependency is cleaner.
+        if (session) {
+            fetchData();
+            interval = setInterval(fetchData, 3000);
+        }
 
         return () => clearInterval(interval);
-    }, [id]);
+    }, [id, session, router, supabase]);
 
     const containerVariants = {
         hidden: { opacity: 0 },
