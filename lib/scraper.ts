@@ -1,5 +1,6 @@
 import path from 'path';
 import fs from 'fs/promises';
+import crypto from 'crypto';
 // import puppeteer from 'puppeteer-core'; // REMOVED TOP-LEVEL IMPORT
 import { supabase, supabaseAdmin } from './supabase';
 import { extractMetadata } from './extractors/meta';
@@ -11,7 +12,7 @@ import { ScrapeResult } from './scraper-types';
 
 const supabaseClient = (supabaseAdmin || supabase) as any;
 
-export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResult> {
+export async function scrapeWebsite(id: string, url: string, skipDownloads: boolean = false): Promise<ScrapeResult> {
     const log = async (message: string, type: 'info' | 'error' | 'success' | 'warning' = 'info') => {
         console.log(`[${id}] ${message}`);
         await supabaseClient.from('logs').insert({ website_id: id, message, type });
@@ -70,14 +71,24 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
                     // Recommended settings for Vercel
                     chromium.setGraphicsMode = false;
 
+                    const launchArgs = [
+                        ...chromium.args,
+                        '--no-sandbox',
+                        '--disable-setuid-sandbox',
+                        '--disable-web-security',
+                        '--disable-features=IsolateOrigins',
+                        '--disable-site-isolation-trials',
+                        '--window-size=1920,1080',
+                        '--hide-scrollbars'
+                    ];
+
+                    const proxyUrl = process.env.PROXY_URL;
+                    if (proxyUrl) {
+                        launchArgs.push(`--proxy-server=${proxyUrl}`);
+                    }
+
                     browser = await puppeteerExtra.launch({
-                        args: [
-                            ...chromium.args,
-                            '--no-sandbox',
-                            '--disable-setuid-sandbox',
-                            '--window-size=1920,1080',
-                            '--hide-scrollbars'
-                        ],
+                        args: launchArgs,
                         defaultViewport: { width: 1920, height: 1080 },
                         executablePath: await chromium.executablePath(),
                         headless: chromium.headless,
@@ -159,9 +170,17 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
                 await log(`Navigating to ${url}...`);
                 try {
                     // Reduced timeout to 30s to allow time for processing
-                    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+                    // Using networkidle0 to wait for dynamic content
+                    await page.goto(url, { waitUntil: 'networkidle0', timeout: 30000 });
+                } catch (e: any) {
+                    await log(`Navigation timeout/idle warning: ${e.message}, proceeding...`, 'warning');
+                }
+
+                // Explicitly wait for body to ensure substantial content
+                try {
+                    await page.waitForSelector('body', { timeout: 5000 });
                 } catch (e) {
-                    await log('Navigation timeout reached, proceeding with partial load...', 'warning');
+                    // ignore
                 }
 
                 checkTimeBudget();
@@ -368,35 +387,14 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
             return img;
         }).slice(0, safeImageLimit);
 
-        for (const img of topImages) {
-            try {
-                const response = await fetch(img.url, {
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-                        'Referer': url
-                    },
-                    signal: AbortSignal.timeout(10000)
-                });
-                if (!response.ok) continue;
-
-                const buffer = await response.arrayBuffer();
-                const contentType = response.headers.get('content-type') || 'image/png';
-                const filename = `img_${Math.random().toString(36).substring(7)}_${path.basename(img.url).split('?')[0]}`;
-                const storagePath = `${id}/${filename}`;
-
-                const { error: uploadError } = await supabaseClient.storage
-                    .from('scrapes')
-                    .upload(storagePath, buffer, { contentType, upsert: true });
-
-                if (!uploadError) {
-                    const { data: { publicUrl } } = supabaseClient.storage
-                        .from('scrapes')
-                        .getPublicUrl(storagePath);
-                    persistentImages.push(publicUrl);
-                }
-            } catch (e) {
-                // Skip failed downloads
-            }
+        if (!skipDownloads) {
+            // --- PARALLEL DOWNLOADER ---
+            await log(`Downloading ${topImages.length} images in parallel...`);
+            const downloaded = await downloadAssets(id, topImages.map(img => img.url), url, supabaseClient);
+            persistentImages.push(...downloaded);
+        } else {
+            await log('Skipping image downloads (Discovery Mode). Assets will be queued.', 'info');
+            // We still want to return the URLs so the UI knows what exists
         }
 
         // Calculate Design Intelligence Scores
@@ -521,4 +519,59 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
         await supabaseClient.from('websites').update({ status: 'failed' }).eq('id', id);
         throw error;
     }
+}
+
+/**
+ * Standalone function to download assets for an existing scrape ID
+ */
+export async function downloadAssets(id: string, imageUrls: string[], referer: string, sbClient?: any): Promise<string[]> {
+    const client = sbClient || supabaseAdmin || supabase;
+    const downloadedUrls: string[] = [];
+
+    // Helper to download a single image
+    const downloadImage = async (url: string) => {
+        try {
+            const response = await fetch(url, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                    'Referer': referer
+                },
+                signal: AbortSignal.timeout(8000)
+            });
+
+            if (!response.ok) return null;
+
+            const buffer = await response.arrayBuffer();
+            const contentType = response.headers.get('content-type') || 'image/png';
+            const safeName = path.basename(url.split('?')[0]).replace(/[^a-zA-Z0-9._-]/g, '_');
+            const filename = `img_${crypto.randomUUID().substring(0, 8)}_${safeName}`;
+            const storagePath = `${id}/${filename}`;
+
+            const { error: uploadError } = await client.storage
+                .from('scrapes')
+                .upload(storagePath, buffer, { contentType, upsert: true });
+
+            if (!uploadError) {
+                const { data: { publicUrl } } = client.storage
+                    .from('scrapes')
+                    .getPublicUrl(storagePath);
+                return publicUrl;
+            }
+            return null;
+        } catch (e) {
+            return null;
+        }
+    };
+
+    // Batch runner
+    const batchSize = 10;
+    for (let i = 0; i < imageUrls.length; i += batchSize) {
+        const batch = imageUrls.slice(i, i + batchSize);
+        const results = await Promise.all(batch.map(u => downloadImage(u)));
+        results.forEach(res => {
+            if (res) downloadedUrls.push(res);
+        });
+    }
+
+    return downloadedUrls;
 }

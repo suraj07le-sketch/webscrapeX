@@ -98,7 +98,10 @@ export async function POST(req: NextRequest) {
         // Await scraper to prevent Vercel from freezing the process
         // This ensures data exists before we return
         try {
-            await scrapeWebsite(id, url);
+            // VERCEL OPTIMIZATION:
+            // We set skipDownloads=true to perform FAST discovery (5-10s)
+            // The frontend will then call /api/v2/scrape/assets to trigger background downloads
+            await scrapeWebsite(id, url, true);
         } catch (err) {
             console.error('Scraper V2 Error:', err);
             // We still return 200 if DB insert worked, but status will be 'failed' 
