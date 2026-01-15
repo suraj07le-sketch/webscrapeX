@@ -282,7 +282,6 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
         }
 
         // Use /tmp in Vercel/Lambda, otherwise fallback to local tmp
-        const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_VERSION;
         const baseDir = isServerless ? '/tmp' : path.resolve(process.cwd(), 'tmp');
         const scrapeDir = path.join(baseDir, 'scrapes', id);
 
