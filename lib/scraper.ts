@@ -114,16 +114,16 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
                 await page.evaluate(async () => {
                     await new Promise<void>((resolve) => {
                         let totalHeight = 0;
-                        let distance = 200;
+                        let distance = 100; // Slower scroll
                         let timer = setInterval(() => {
                             let scrollHeight = document.body.scrollHeight;
                             window.scrollBy(0, distance);
                             totalHeight += distance;
-                            if (totalHeight >= scrollHeight || totalHeight > 5000) { // Cap at 5000px
+                            if (totalHeight >= scrollHeight || totalHeight > 15000) { // Increased cap to 15000px
                                 clearInterval(timer);
                                 resolve();
                             }
-                        }, 100);
+                        }, 200); // Wait longer between scrolls (200ms)
                     });
                 });
 
@@ -159,10 +159,29 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
                         }
                     }
 
-                    // Regular Images
+                    // Regular Images & Lazy Loading Support
                     document.querySelectorAll('img').forEach(img => {
-                        if (img.src) images.add(img.src);
+                        // Priority order for image source
+                        const src = img.getAttribute('src') ||
+                            img.getAttribute('data-src') ||
+                            img.getAttribute('data-original') ||
+                            img.getAttribute('data-lazy-src');
+
+                        if (src && !src.startsWith('data:')) {
+                            images.add(src);
+                        }
+
+                        // Parse srcset if available
+                        if (img.srcset) {
+                            const candidates = img.srcset.split(',').map(s => s.trim().split(' ')[0]);
+                            candidates.forEach(url => {
+                                if (url && !url.startsWith('data:')) images.add(url);
+                            });
+                        }
                     });
+
+                    // background-images from all elements (computed style is expensive, so we do it selectively if needed)
+                    // The previous sample loop checks computed styles, so we keep that.
 
                     return {
                         colors: Array.from(colors),

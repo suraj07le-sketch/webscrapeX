@@ -13,13 +13,14 @@ export function SignUpForm() {
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
+    const [step, setStep] = useState<'signup' | 'verify'>('signup');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [name, setName] = useState('');
+    const [otp, setOtp] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [success, setSuccess] = useState(false);
     const router = useRouter();
 
     const handleSignUp = async (e: React.FormEvent) => {
@@ -39,30 +40,108 @@ export function SignUpForm() {
             });
 
             if (error) throw error;
-            setSuccess(true);
+            // Switch to verification step instead of success message
+            setStep('verify');
         } catch (err: any) {
             setError(err.message || 'Registration failed');
+        } finally {
             setLoading(false);
         }
     };
 
-    if (success) {
+    const handleVerify = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        setError(null);
+
+        try {
+            const { error } = await supabase.auth.verifyOtp({
+                email,
+                token: otp,
+                type: 'signup'
+            });
+
+            if (error) throw error;
+
+            // Redirect to home on success
+            router.push('/');
+        } catch (err: any) {
+            setError(err.message || 'Verification failed. Check code and try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (step === 'verify') {
         return (
-            <div className="text-center space-y-8 py-12">
-                <motion.div
-                    initial={{ scale: 0.5, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className="w-24 h-24 bg-emerald-500/10 rounded-[2rem] flex items-center justify-center mx-auto mb-10 border border-emerald-500/20"
-                >
-                    <Mail className="w-10 h-10 text-emerald-500" />
-                </motion.div>
-                <h2 className="text-3xl font-black tracking-tight">Check your inbox</h2>
-                <p className="text-muted-foreground/60 leading-relaxed font-medium">
-                    We've sent a magic link to <br /> <span className="text-primary font-bold">{email}</span>.
-                </p>
-                <AnimatedButton onClick={() => router.push('/login')} variant="outline" className="w-full h-16 rounded-[1.25rem] mt-10">
-                    Proceed to Login
-                </AnimatedButton>
+            <div className="space-y-8 py-8">
+                <div className="text-center space-y-4">
+                    <motion.div
+                        initial={{ scale: 0.5, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto border border-primary/20"
+                    >
+                        <Mail className="w-10 h-10 text-primary" />
+                    </motion.div>
+                    <h2 className="text-2xl font-black tracking-tight">Enter Verification Code</h2>
+                    <p className="text-muted-foreground/80 font-medium">
+                        We sent a 6-digit code to <span className="text-primary">{email}</span>
+                    </p>
+                </div>
+
+                <form onSubmit={handleVerify} className="space-y-6">
+                    <AnimatePresence>
+                        {error && (
+                            <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm flex items-center gap-3"
+                            >
+                                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                                <span className="font-medium">{error}</span>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
+                    <div className="space-y-2">
+                        <div className="relative group">
+                            <Input
+                                type="text"
+                                placeholder="000000"
+                                value={otp}
+                                onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                className="h-16 text-center text-3xl tracking-[0.5em] font-mono bg-white/5 border-white/10 rounded-2xl focus:bg-white/10 focus:border-primary/50 transition-all ring-offset-transparent"
+                                required
+                                autoFocus
+                                maxLength={6}
+                            />
+                            <div className="absolute inset-0 bg-primary/5 blur-xl rounded-full opacity-0 group-focus-within:opacity-100 transition-opacity -z-10" />
+                        </div>
+                        <p className="text-xs text-center text-muted-foreground">Check your spam folder if you don't see it.</p>
+                    </div>
+
+                    <AnimatedButton
+                        type="submit"
+                        className="w-full h-14 rounded-2xl shadow-lg shadow-primary/20 text-base font-black group transition-all"
+                        disabled={loading || otp.length !== 6}
+                    >
+                        {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                            <div className="flex items-center gap-2">
+                                <span>Verify & Login</span>
+                                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                            </div>
+                        )}
+                    </AnimatedButton>
+
+                    <button
+                        type="button"
+                        onClick={() => setStep('signup')}
+                        className="w-full text-sm text-muted-foreground hover:text-white transition-colors"
+                    >
+                        Change Email Address
+                    </button>
+                </form>
             </div>
         );
     }
