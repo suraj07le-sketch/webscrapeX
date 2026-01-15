@@ -20,6 +20,14 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
     const startTime = Date.now();
     const isServerless = !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_VERSION);
 
+    // Time Budget Helper
+    const checkTimeBudget = () => {
+        const elapsed = (Date.now() - startTime) / 1000;
+        if (elapsed > 55) {
+            throw new Error('TIME_BUDGET_EXCEEDED');
+        }
+    };
+
     try {
         let deepFindings = { colors: [] as string[], fonts: [] as string[], images: [] as string[] };
         let liveHtml = '';
@@ -34,12 +42,12 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
             await log('Launching deep-analysis browser (Hybrid Mode)...');
 
             // Stealth Plugin Implementation
-
-            // Stealth Plugin Implementation
             const puppeteerExtra = (await import('puppeteer-extra')).default;
             const StealthPlugin = (await import('puppeteer-extra-plugin-stealth')).default;
 
             puppeteerExtra.use(StealthPlugin());
+
+            checkTimeBudget();
 
             if (process.env.BROWSER_WS_ENDPOINT) {
                 // 1. Remote Browser (Highest Priority - Best for Vercel Pro/Scaling)
@@ -107,6 +115,8 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
                 }
             }
 
+            checkTimeBudget();
+
             if (browser) {
                 const page = await browser.newPage();
                 await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36');
@@ -149,6 +159,8 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
                     await log('Navigation timeout reached, proceeding with partial load...', 'warning');
                 }
 
+                checkTimeBudget();
+
                 // Scroll to trigger lazy loading (FASTER)
                 await log('Scrolling to trigger lazy loading...');
                 // Scroll to trigger lazy loading (FASTER)
@@ -171,6 +183,8 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
                         }, 100);
                     });
                 }, isServerless);
+
+                checkTimeBudget();
 
                 await log('Performing deep DOM extraction (Colors, Fonts, Images)...');
                 // Reduced wait
@@ -277,7 +291,13 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
                 await log(`Live analysis complete. Found ${deepFindings.colors.length} colors, ${deepFindings.fonts.length} fonts, and ${deepFindings.images.length} images (Network+DOM).`);
             }
         } catch (e: any) {
-            await log(`Deep analysis partially failed: ${e.message}`, 'warning');
+            // IF THE ERROR IS OUR CUSTOM TIMEOUT, WE CATCH IT GENTLY HERE
+            if (e.message === 'TIME_BUDGET_EXCEEDED') {
+                await log('Time budget exceeded (55s). Stopping browser tasks and saving current progress.', 'warning');
+                // We proceed to process whatever 'deepFindings' and 'liveHtml' we have
+            } else {
+                await log(`Deep analysis partially failed: ${e.message}`, 'warning');
+            }
             if (browser) await browser.close();
         }
 
