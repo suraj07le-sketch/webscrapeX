@@ -25,12 +25,16 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
         try {
             await log('Launching deep-analysis browser (Hybrid Mode)...');
 
+            // Stealth Plugin Implementation
+            const puppeteerExtra = (await import('puppeteer-extra')).default;
+            const StealthPlugin = (await import('puppeteer-extra-plugin-stealth')).default;
+
+            puppeteerExtra.use(StealthPlugin());
+
             if (process.env.BROWSER_WS_ENDPOINT) {
                 // 1. Remote Browser (Highest Priority - Best for Vercel Pro/Scaling)
-                const puppeteer = (await import('puppeteer-core')).default;
-
                 await log(`Connecting to remote browser...`);
-                browser = await puppeteer.connect({
+                browser = await puppeteerExtra.connect({
                     browserWSEndpoint: process.env.BROWSER_WS_ENDPOINT,
                 });
             } else if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_VERSION) {
@@ -38,20 +42,16 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
                 await log('Detected Serverless Environment. Launching Chromium...');
                 try {
                     const chromium = (await import('@sparticuz/chromium-min')).default as any;
-                    const puppeteer = (await import('puppeteer-core')).default;
+                    // Note: puppeteer-core is still needed for types/compat, but we use puppeteer-extra to launch
 
                     // Recommended settings for Vercel
                     chromium.setGraphicsMode = false;
 
-                    // Optional: Load a custom font if needed, but skipping for speed
-                    // await chromium.font('https://raw.githack.com/googlei18n/noto-emoji/master/fonts/NotoColorEmoji.ttf');
-
-                    browser = await puppeteer.launch({
+                    browser = await puppeteerExtra.launch({
                         args: [
                             ...chromium.args,
                             '--no-sandbox',
                             '--disable-setuid-sandbox',
-                            '--disable-blink-features=AutomationControlled',
                             '--window-size=1920,1080',
                             '--hide-scrollbars'
                         ],
@@ -86,9 +86,8 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
                 }
 
                 if (executablePath) {
-                    const puppeteer = (await import('puppeteer-core')).default;
                     await log(`Launching local Chrome from ${executablePath}...`);
-                    browser = await puppeteer.launch({
+                    browser = await puppeteerExtra.launch({
                         args: ['--no-sandbox', '--disable-setuid-sandbox'],
                         executablePath: executablePath,
                         headless: true
