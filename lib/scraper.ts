@@ -47,10 +47,17 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
                     // await chromium.font('https://raw.githack.com/googlei18n/noto-emoji/master/fonts/NotoColorEmoji.ttf');
 
                     browser = await puppeteer.launch({
-                        args: [...chromium.args, '--no-sandbox', '--disable-setuid-sandbox'],
-                        defaultViewport: chromium.defaultViewport,
+                        args: [
+                            ...chromium.args,
+                            '--no-sandbox',
+                            '--disable-setuid-sandbox',
+                            '--disable-blink-features=AutomationControlled',
+                            '--window-size=1920,1080',
+                            '--hide-scrollbars'
+                        ],
+                        defaultViewport: { width: 1920, height: 1080 },
                         executablePath: await chromium.executablePath(),
-                        headless: chromium.headless, // 'shell' mode is faster in recent versions
+                        headless: chromium.headless,
                     });
                 } catch (e: any) {
                     await log(`Serverless Chrome launch failed: ${e.message}`, 'error');
