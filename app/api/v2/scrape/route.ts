@@ -11,6 +11,10 @@ export async function GET() {
     return NextResponse.json({ status: 'API V2 is running' });
 }
 
+// Max duration for Vercel Serverless Functions (seconds)
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
     console.log('>>> CAPTURE API V2 HIT');
 
