@@ -20,6 +20,11 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
     const startTime = Date.now();
     const isServerless = !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_VERSION);
 
+    if (isServerless && !supabaseAdmin) {
+        console.error('CRITICAL: SUPABASE_SERVICE_ROLE_KEY is missing! Scraper cannot save data.');
+        // We continue, but it will likely fail.
+    }
+
     // Time Budget Helper
     const checkTimeBudget = () => {
         const elapsed = (Date.now() - startTime) / 1000;
