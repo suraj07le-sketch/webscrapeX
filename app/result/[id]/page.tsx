@@ -101,7 +101,19 @@ export default function ResultPage() {
                             clearInterval(interval);
                         }
                     } else if (webData.status === 'failed') {
-                        setError('Scraping failed. Check logs for details.');
+                        const { data: logs } = await supabase.from('logs')
+                            .select('message, type')
+                            .eq('website_id', id)
+                            .eq('type', 'error')
+                            .order('created_at', { ascending: false })
+                            .limit(5);
+
+                        const logMessage = logs && logs.length > 0
+                            ? logs.map(l => l.message).join('\n')
+                            : 'No detailed logs found.';
+
+                        setError(`Scraping failed: ${logMessage}`);
+                        console.error('Scrape Logs:', logs);
                         clearInterval(interval);
                     }
                 }
