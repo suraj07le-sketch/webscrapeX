@@ -101,6 +101,34 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
                 const page = await browser.newPage();
                 await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36');
 
+                // Network Interception for Assets (The "Pro" Way)
+                const networkImages = new Set<string>();
+                const networkFonts = new Set<string>();
+                const networkCSS = new Set<string>();
+
+                await page.setRequestInterception(true);
+                page.on('request', (req) => {
+                    const resourceType = req.resourceType();
+                    if (['image', 'font', 'stylesheet'].includes(resourceType)) {
+                        req.continue();
+                    } else {
+                        req.continue();
+                    }
+                });
+
+                page.on('response', async (response) => {
+                    const url = response.url();
+                    const resourceType = response.request().resourceType();
+
+                    if (resourceType === 'image' && !url.startsWith('data:')) {
+                        networkImages.add(url);
+                    } else if (resourceType === 'font') {
+                        networkFonts.add(url);
+                    } else if (resourceType === 'stylesheet') {
+                        networkCSS.add(url);
+                    }
+                });
+
                 await log(`Navigating to ${url}...`);
                 try {
                     await page.goto(url, { waitUntil: 'networkidle2', timeout: 45000 });
@@ -194,7 +222,16 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
 
                 liveHtml = await page.content();
                 await browser.close();
-                await log(`Live analysis complete. Found ${deepFindings.colors.length} colors, ${deepFindings.fonts.length} fonts, and ${deepFindings.images.length} images.`);
+
+                // MERGE Network Findings with DOM Findings
+                networkImages.forEach(img => deepFindings.images.push(img));
+                networkFonts.forEach(font => deepFindings.fonts.push(font));
+
+                // Remove duplicates
+                deepFindings.images = Array.from(new Set(deepFindings.images));
+                deepFindings.fonts = Array.from(new Set(deepFindings.fonts));
+
+                await log(`Live analysis complete. Found ${deepFindings.colors.length} colors, ${deepFindings.fonts.length} fonts, and ${deepFindings.images.length} images (Network+DOM).`);
             }
         } catch (e: any) {
             await log(`Deep analysis partially failed: ${e.message}`, 'warning');
@@ -227,7 +264,7 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
         const technologies = detectTechnologies(htmlContent, deepFindings.colors.join(' '));
 
         const mergedImages: any[] = deepFindings.images.filter(u => u && !u.startsWith('data:')).map(url => ({ url, size: 0 }));
-        const cssFiles: any[] = [];
+        const cssFiles: any[] = Array.from(networkCSS).map(url => ({ url, size: 0 })); // Use Network CSS
         const jsFiles: any[] = [];
         const rawAssets: any[] = [];
         const linksSet = new Set<string>();
