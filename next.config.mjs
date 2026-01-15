@@ -14,7 +14,7 @@ const withPWA = withPWAInit({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
-  serverExternalPackages: ['puppeteer-core', '@sparticuz/chromium-min'],
+  serverExternalPackages: ['puppeteer-core', '@sparticuz/chromium-min', 'puppeteer-extra', 'puppeteer-extra-plugin-stealth'],
   experimental: {
     outputFileTracingExcludes: {
       '*': [
@@ -45,6 +45,13 @@ const nextConfig = {
         './**/node_modules/next', // Experimental: try to exclude next internals if possible
       ],
     },
+  },
+  webpack: (config) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      puppeteer: 'puppeteer-core',
+    };
+    return config;
   },
 };
 

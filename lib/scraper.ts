@@ -18,6 +18,7 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
     };
 
     try {
+        let deepFindings = { colors: [] as string[], fonts: [] as string[], images: [] as string[] };
         let liveHtml = '';
         let browser;
 
@@ -120,9 +121,13 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
                     }
                 });
 
-                page.on('response', async (response) => {
+                page.on('response', async (response: any) => {
                     const url = response.url();
-                    const resourceType = response.request().resourceType();
+                    const req = response.request();
+
+                    if (!req) return;
+
+                    const resourceType = req.resourceType();
 
                     if (resourceType === 'image' && !url.startsWith('data:')) {
                         networkImages.add(url);
