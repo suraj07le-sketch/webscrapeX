@@ -37,7 +37,7 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
                 // 2. Vercel Serverless (Uses @sparticuz/chromium)
                 await log('Detected Serverless Environment. Launching Chromium...');
                 try {
-                    const chromium = (await import('@sparticuz/chromium')).default as any;
+                    const chromium = (await import('@sparticuz/chromium-min')).default as any;
                     const puppeteer = (await import('puppeteer-core')).default;
 
                     // Recommended settings for Vercel
@@ -173,7 +173,10 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
             if (browser) await browser.close();
         }
 
-        const scrapeDir = path.resolve(process.cwd(), 'tmp', 'scrapes', id);
+        // Use /tmp in Vercel/Lambda, otherwise fallback to local tmp
+        const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_VERSION;
+        const baseDir = isServerless ? '/tmp' : path.resolve(process.cwd(), 'tmp');
+        const scrapeDir = path.join(baseDir, 'scrapes', id);
 
         let htmlContent = liveHtml;
 
