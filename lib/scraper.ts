@@ -140,32 +140,33 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
 
                 await log(`Navigating to ${url}...`);
                 try {
-                    await page.goto(url, { waitUntil: 'networkidle2', timeout: 45000 });
+                    // Reduced timeout to 30s to allow time for processing
+                    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
                 } catch (e) {
                     await log('Navigation timeout reached, proceeding with partial load...', 'warning');
                 }
 
-                // Scroll to trigger lazy loading
+                // Scroll to trigger lazy loading (FASTER)
                 await log('Scrolling to trigger lazy loading...');
                 await page.evaluate(async () => {
                     await new Promise<void>((resolve) => {
                         let totalHeight = 0;
-                        let distance = 100; // Slower scroll
+                        let distance = 300; // Faster scroll
                         let timer = setInterval(() => {
                             let scrollHeight = document.body.scrollHeight;
                             window.scrollBy(0, distance);
                             totalHeight += distance;
-                            if (totalHeight >= scrollHeight || totalHeight > 15000) { // Increased cap to 15000px
+                            if (totalHeight >= scrollHeight || totalHeight > 15000) {
                                 clearInterval(timer);
                                 resolve();
                             }
-                        }, 200); // Wait longer between scrolls (200ms)
+                        }, 100); // Fast interval (100ms) - finishes 15000px in ~5 seconds
                     });
                 });
 
                 await log('Performing deep DOM extraction (Colors, Fonts, Images)...');
-                // Give a moment for final lazy loads to settle
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                // Reduced wait
+                await new Promise(resolve => setTimeout(resolve, 1000));
 
                 deepFindings = await page.evaluate(() => {
                     const colors = new Set<string>();
@@ -270,7 +271,9 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
         // Process Everything
         await log('Synthesizing results...');
         const metadata = extractMetadata(htmlContent, url);
-        const technologies = detectTechnologies(htmlContent, deepFindings.colors.join(' '));
+        // Combine DOM colors with Network CSS for better tech (Tailwind/Bootstrap) detection
+        const combinedCssForTech = deepFindings.colors.join(' ') + ' ' + Array.from(networkCSS).join(' ');
+        const technologies = detectTechnologies(htmlContent, combinedCssForTech);
 
         const mergedImages: any[] = deepFindings.images.filter(u => u && !u.startsWith('data:')).map(url => ({ url, size: 0 }));
         const cssFiles: any[] = Array.from(networkCSS).map(url => ({ url, size: 0 })); // Use Network CSS
