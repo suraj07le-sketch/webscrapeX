@@ -18,12 +18,18 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
     };
 
     try {
-        let deepFindings = { colors: [] as string[], fonts: [] as string[], images: [] as string[] };
         let liveHtml = '';
         let browser;
 
+        // Scope these so they are accessible later
+        let networkImages = new Set<string>();
+        let networkFonts = new Set<string>();
+        let networkCSS = new Set<string>();
+
         try {
             await log('Launching deep-analysis browser (Hybrid Mode)...');
+
+            // Stealth Plugin Implementation
 
             // Stealth Plugin Implementation
             const puppeteerExtra = (await import('puppeteer-extra')).default;
@@ -102,12 +108,10 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
                 await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36');
 
                 // Network Interception for Assets (The "Pro" Way)
-                const networkImages = new Set<string>();
-                const networkFonts = new Set<string>();
-                const networkCSS = new Set<string>();
+                // Variables defined in outer scope
 
                 await page.setRequestInterception(true);
-                page.on('request', (req) => {
+                page.on('request', (req: any) => {
                     const resourceType = req.resourceType();
                     if (['image', 'font', 'stylesheet'].includes(resourceType)) {
                         req.continue();
