@@ -27,4 +27,9 @@ export interface ScrapeResult {
     technologies: string[];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     rawAssets: any[];
+    designIntelligence?: {
+        visualCohesion: string;
+        technicalMaturity: string;
+        seoReadiness: number;
+    };
 }

@@ -275,6 +275,20 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
             }
         }
 
+        // Calculate Design Intelligence Scores
+        const seoReadiness = Math.min(100, (
+            (metadata.title ? 20 : 0) +
+            (metadata.description ? 20 : 0) +
+            (metadata.keywords.length > 0 ? 10 : 0) +
+            (metadata.favicon ? 10 : 0) +
+            (htmlContent.includes('<h1') ? 20 : 0) +
+            (url.startsWith('https') ? 20 : 0)
+        ));
+
+        const technicalMaturity = (technologies.length > 3 ? 'Modern' : technologies.length > 0 ? 'Established' : 'Basic');
+
+        const visualCohesion = (deepFindings.colors.length > 3 && deepFindings.fonts.length > 1) ? 'Unified' : 'Standard';
+
         const finalResult: ScrapeResult = {
             url,
             metadata: {
@@ -282,6 +296,11 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
                 description: metadata.description || 'No description found.',
                 keywords: metadata.keywords || [],
                 favicon: metadata.favicon || '/favicon.ico'
+            },
+            designIntelligence: {
+                visualCohesion,
+                technicalMaturity,
+                seoReadiness
             },
             colors: processedColors.slice(0, 25),
             fonts: Array.from(new Set(processedFonts)).filter(f => f.length > 2).slice(0, 30),
