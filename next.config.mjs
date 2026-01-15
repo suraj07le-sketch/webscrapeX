@@ -41,7 +41,6 @@ const nextConfig = {
       './**/node_modules/@types',
       './**/*.map',
       './**/*.d.ts',
-      './**/node_modules/next', // Experimental: try to exclude next internals if possible
     ],
   },
   experimental: {},
