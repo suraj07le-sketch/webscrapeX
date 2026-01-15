@@ -128,6 +128,9 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
                 });
 
                 await log('Performing deep DOM extraction (Colors, Fonts, Images)...');
+                // Give a moment for final lazy loads to settle
+                await new Promise(resolve => setTimeout(resolve, 2000));
+
                 deepFindings = await page.evaluate(() => {
                     const colors = new Set<string>();
                     const fonts = new Set<string>();
@@ -252,7 +255,13 @@ export async function scrapeWebsite(id: string, url: string): Promise<ScrapeResu
 
         for (const img of topImages) {
             try {
-                const response = await fetch(img.url, { signal: AbortSignal.timeout(10000) });
+                const response = await fetch(img.url, {
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                        'Referer': url
+                    },
+                    signal: AbortSignal.timeout(10000)
+                });
                 if (!response.ok) continue;
 
                 const buffer = await response.arrayBuffer();
