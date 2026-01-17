@@ -94,6 +94,29 @@ export async function scrapeWebsite(id: string, url: string, skipDownloads: bool
                     if (href) deepFindings.images.push(href);
                 });
 
+                // --- NEW: Regex Color Extraction ---
+                const colorRegex = /#(?:[0-9a-fA-F]{3}){1,2}\b|rgb\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*\)|rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*[\d.]+\s*\)/gi;
+                const foundColors = liveHtml.match(colorRegex);
+                if (foundColors) {
+                    // Get top 20 unique colors
+                    foundColors.slice(0, 100).forEach(c => deepFindings.colors.push(c));
+                }
+
+                // --- NEW: Google Fonts Extraction ---
+                $('link[href*="fonts.googleapis.com"]').each((i, el) => {
+                    const href = $(el).attr('href');
+                    if (href) {
+                        try {
+                            const urlObj = new URL(href);
+                            const family = urlObj.searchParams.get('family');
+                            if (family) {
+                                // Google Fonts format: "Roboto:wght@400;700" -> "Roboto"
+                                deepFindings.fonts.push(family.split(':')[0]);
+                            }
+                        } catch (e) { }
+                    }
+                });
+
                 // Extract Fonts (basic regex on styles/links)
                 $('link[rel="stylesheet"]').each((i, el) => {
                     const href = $(el).attr('href');
