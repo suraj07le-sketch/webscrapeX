@@ -81,6 +81,19 @@ export async function scrapeWebsite(id: string, url: string, skipDownloads: bool
                     }
                 });
 
+                // Extract High-Value Metadata Images (OG, Twitter)
+                const ogImage = $('meta[property="og:image"]').attr('content');
+                if (ogImage) deepFindings.images.push(ogImage);
+
+                const twitterImage = $('meta[name="twitter:image"]').attr('content');
+                if (twitterImage) deepFindings.images.push(twitterImage);
+
+                // Extract Icons
+                $('link[rel*="icon"]').each((i, el) => {
+                    const href = $(el).attr('href');
+                    if (href) deepFindings.images.push(href);
+                });
+
                 // Extract Fonts (basic regex on styles/links)
                 $('link[rel="stylesheet"]').each((i, el) => {
                     const href = $(el).attr('href');
