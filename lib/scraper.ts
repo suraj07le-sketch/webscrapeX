@@ -9,11 +9,14 @@ import { extractColors } from './extractors/colors';
 import { extractFonts } from './extractors/fonts';
 import { detectTechnologies } from './extractors/tech';
 import { extractContent } from './extractors/content';
-import { ScrapeResult } from './scraper-types';
+import { extractSocialData } from './extractors/social';
+import { extractLinkedInProfile } from './extractors/linkedin';
+import { auditSEO } from './extractors/seo';
+import { ScrapeResult, ScrapeMode } from './scraper-types';
 
 const supabaseClient = (supabaseAdmin || supabase) as any;
 
-export async function scrapeWebsite(id: string, url: string, skipDownloads: boolean = false, fastMode: boolean = true): Promise<ScrapeResult> {
+export async function scrapeWebsite(id: string, url: string, skipDownloads: boolean = false, fastMode: boolean = true, mode: ScrapeMode = 'full'): Promise<ScrapeResult> {
     const log = async (message: string, type: 'info' | 'error' | 'success' | 'warning' = 'info') => {
         console.log(`[${id}] ${message}`);
         await supabaseClient.from('logs').insert({ website_id: id, message, type });
@@ -39,6 +42,11 @@ export async function scrapeWebsite(id: string, url: string, skipDownloads: bool
         let deepFindings = { colors: [] as string[], fonts: [] as string[], images: [] as string[] };
         let liveHtml = '';
         let browser;
+        let screenshotUrl = '';
+        let pdfUrl = '';
+
+        const isLightMode = mode === 'social' || mode === 'content';
+        if (isLightMode) fastMode = true; // Force fast mode for light scrapes
 
         // Scope these so they are accessible later
         let networkImages = new Set<string>();
@@ -57,7 +65,13 @@ export async function scrapeWebsite(id: string, url: string, skipDownloads: bool
                     headers: {
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
                         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-                        'Accept-Language': 'en-US,en;q=0.9'
+                        'Accept-Language': 'en-US,en;q=0.9',
+                        'Accept-Encoding': 'gzip, deflate, br',
+                        'Connection': 'keep-alive',
+                        'Upgrade-Insecure-Requests': '1',
+                        'Sec-Ch-Ua': '"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"',
+                        'Sec-Ch-Ua-Mobile': '?0',
+                        'Sec-Ch-Ua-Platform': '"Windows"'
                     },
                     signal: controller.signal
                 });
@@ -67,6 +81,14 @@ export async function scrapeWebsite(id: string, url: string, skipDownloads: bool
                 liveHtml = await response.text();
 
                 const $ = cheerio.load(liveHtml);
+                const title = $('title').text().trim().toLowerCase();
+
+                // Auth Wall / Bot Detection Check
+                if (title.includes('sign in') || title.includes('log in') || title.includes('security check') || title.includes('robot') || title.includes('please wait') || title.includes('verify you are human')) {
+                    if (mode === 'social' || mode === 'full') {
+                        throw new Error('Auth/Bot wall detected');
+                    }
+                }
 
                 // Extract Images
                 $('img').each((i, el) => {
@@ -137,6 +159,7 @@ export async function scrapeWebsite(id: string, url: string, skipDownloads: bool
 
             } catch (e: any) {
                 await log(`Fast Mode failed (${e.message}). Falling back to Deep Mode...`, 'warning');
+                liveHtml = ''; // Reset so Deep Mode triggers
                 // If fast mode fails, we could fallback, or if strict 10s is needed, we might just stop.
                 // For now, let's allow fallback if we have time, but usually we won't.
                 // If the user wants STRICT 10s, we should probably throw or return what we have.
@@ -144,7 +167,11 @@ export async function scrapeWebsite(id: string, url: string, skipDownloads: bool
         }
 
         // --- DEEP MODE (PUPPETEER) ---
-        if (!liveHtml && !fastMode) {
+        // Run if:
+        // 1. liveHtml is empty (Fast mode failed)
+        // 2. OR fastMode was explicitly false
+        // 3. OR we are in a fallback scenario where fastMode WAS true but failed (liveHtml empty)
+        if (!liveHtml || !fastMode) {
             try {
                 await log('Launching deep-analysis browser (Hybrid Mode)...');
                 // ... strict check for browser ...
@@ -404,6 +431,43 @@ export async function scrapeWebsite(id: string, url: string, skipDownloads: bool
                     });
 
                     liveHtml = await page.content();
+
+                    // --- NEW: CAPTURE SCREENSHOT & PDF ---
+                    try {
+                        await log('Capturing full-page screenshot...');
+                        const screenshotBuffer = await page.screenshot({ fullPage: true });
+                        const screenshotPath = `screenshots/${id}/full.png`;
+                        const { error: ssError } = await supabaseClient.storage
+                            .from('scrapes')
+                            .upload(screenshotPath, screenshotBuffer, { contentType: 'image/png', upsert: true });
+
+                        if (!ssError) {
+                            const { data: { publicUrl } } = supabaseClient.storage
+                                .from('scrapes')
+                                .getPublicUrl(screenshotPath);
+                            screenshotUrl = publicUrl;
+                            await log('Screenshot captured and uploaded.', 'success');
+                        }
+
+                        // PDF Generation (Headless only)
+                        await log('Generating PDF snapshot...');
+                        const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
+                        const pdfPath = `pdfs/${id}/snapshot.pdf`;
+                        const { error: pdfError } = await supabaseClient.storage
+                            .from('scrapes')
+                            .upload(pdfPath, pdfBuffer, { contentType: 'application/pdf', upsert: true });
+
+                        if (!pdfError) {
+                            const { data: { publicUrl } } = supabaseClient.storage
+                                .from('scrapes')
+                                .getPublicUrl(pdfPath);
+                            pdfUrl = publicUrl;
+                            await log('PDF snapshot generated and uploaded.', 'success');
+                        }
+                    } catch (captureErr: any) {
+                        await log(`Screenshot/PDF capture warning: ${captureErr.message}`, 'warning');
+                    }
+
                     if (browser) await browser.close();
 
                     // MERGE Network Findings with DOM Findings
@@ -466,6 +530,16 @@ export async function scrapeWebsite(id: string, url: string, skipDownloads: bool
         contentData.links.internal.forEach((l: string) => linksSet.add(l));
         contentData.links.external.forEach((l: string) => linksSet.add(l));
 
+        // --- NEW: SOCIAL DATA EXTRACTION ---
+        const socialData = extractSocialData(htmlContent);
+
+        let linkedinData = undefined;
+        if (url.includes('linkedin.com/in/')) {
+            await log('Running specialized LinkedIn profile extraction...');
+            const profile = extractLinkedInProfile(htmlContent);
+            if (profile) linkedinData = profile;
+        }
+
         // Refine colors and fonts
         const processedColors = extractColors(deepFindings.colors.join(' '));
         const processedFonts = extractFonts('', htmlContent); // Checks for @import/google fonts
@@ -491,13 +565,14 @@ export async function scrapeWebsite(id: string, url: string, skipDownloads: bool
             return img;
         }).slice(0, safeImageLimit);
 
-        if (!skipDownloads) {
+        if (!skipDownloads && (mode === 'full' || mode === 'design')) {
             // --- PARALLEL DOWNLOADER ---
             await log(`Downloading ${topImages.length} images in parallel...`);
             const downloaded = await downloadAssets(id, topImages.map(img => img.url), url, supabaseClient);
             persistentImages.push(...downloaded);
         } else {
-            await log('Skipping image downloads (Discovery Mode). Assets will be queued.', 'info');
+            const reason = skipDownloads ? 'User requested skip' : `Mode '${mode}' skips downloads`;
+            await log(`Skipping image downloads (${reason}). Assets will be queued.`, 'info');
             // We still want to return the URLs so the UI knows what exists
         }
 
@@ -528,6 +603,9 @@ export async function scrapeWebsite(id: string, url: string, skipDownloads: bool
                 technicalMaturity,
                 seoReadiness
             },
+            social: socialData,
+            contentAnalysis: contentData.analysis,
+            linkedinProfile: linkedinData,
             colors: processedColors.slice(0, 25),
             fonts: Array.from(new Set(processedFonts)).filter(f => f.length > 2).slice(0, 30),
             images: persistentImages.length > 0 ? persistentImages.map(url => ({ url })) : topImages,
@@ -536,7 +614,10 @@ export async function scrapeWebsite(id: string, url: string, skipDownloads: bool
             html: htmlContent,
             links: Array.from(linksSet).filter(l => l.length > 1).slice(0, 100),
             technologies,
-            rawAssets
+            rawAssets,
+            screenshotUrl,
+            pdfUrl,
+            seo: auditSEO(htmlContent)
         };
 
         // Save Findings to Supabase

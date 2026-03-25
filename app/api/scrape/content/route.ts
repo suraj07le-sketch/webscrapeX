@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { createServerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
+import crypto from 'crypto';
 
 export const runtime = 'nodejs';
 
@@ -114,7 +115,14 @@ export async function GET(req: NextRequest) {
             if (jsonData && !downloadError) {
                 const text = await jsonData.text();
                 const fullResult = JSON.parse(text);
-                return NextResponse.json(fullResult);
+                
+                // Add cache headers for successful result
+                return NextResponse.json(fullResult, {
+                    headers: {
+                        'Cache-Control': 'private, max-age=300, stale-while-revalidate=60',
+                        'ETag': crypto.createHash('md5').update(text).digest('hex')
+                    }
+                });
             }
         } catch (e) {
             // Ignore storage fetch error, fallback to DB

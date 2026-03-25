@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { MotionProvider } from "@/components/layout/MotionProvider";
 import { Navbar } from "@/components/layout/Navbar";
+import NextTopLoader from 'nextjs-toploader';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -86,7 +87,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-background text-foreground transition-colors duration-300 relative`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen h-auto bg-background text-foreground transition-colors duration-300 relative overflow-x-hidden`}
       >
         <ThemeProvider
           attribute="class"
@@ -95,6 +96,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <MotionProvider>
+            <NextTopLoader color="hsl(var(--primary))" showSpinner={false} height={3} />
             <div className="relative">
               <Navbar />
               {children}

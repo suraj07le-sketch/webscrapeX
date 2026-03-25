@@ -1,6 +1,6 @@
 'use client';
 
-import { motion, useScroll, useSpring } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { ThemeToggle } from "@/components/ThemeToggle";
 import {
     Sheet,
@@ -10,11 +10,8 @@ import {
     SheetDescription,
 } from "@/components/ui/sheet";
 import { SidebarContent } from "./Sidebar";
-import { Menu } from "lucide-react";
-
-
-import { Command, Search, Zap, LogIn, UserPlus, LogOut, Shield, ChevronDown } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import { Menu, Zap, LogIn, UserPlus, LogOut, Shield, ChevronDown } from 'lucide-react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
@@ -26,23 +23,30 @@ export function Navbar() {
     const { user, loading, isAdmin, signOut } = useAuth();
     const [isScrolled, setIsScrolled] = useState(false);
     const [showUserMenu, setShowUserMenu] = useState(false);
+    const [scrollProgress, setScrollProgress] = useState(0);
 
-    const { scrollYProgress } = useScroll();
-    const scaleX = useSpring(scrollYProgress, {
-        stiffness: 100,
-        damping: 30,
-        restDelta: 0.001
-    });
-
-    const isResultPage = pathname.includes('/result/') || pathname.includes('/api-access') || pathname.includes('/settings') || pathname.includes('/collections') || pathname.includes('/docs');
-
+    // Optimized scroll handler - use passive listener and throttle
     useEffect(() => {
+        let ticking = false;
+        
         const handleScroll = () => {
-            setIsScrolled(window.scrollY > 50);
+            if (!ticking) {
+                requestAnimationFrame(() => {
+                    setIsScrolled(window.scrollY > 50);
+                    // Calculate scroll progress
+                    const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+                    setScrollProgress(docHeight > 0 ? window.scrollY / docHeight : 0);
+                    ticking = false;
+                });
+                ticking = true;
+            }
         };
-        window.addEventListener('scroll', handleScroll);
+
+        window.addEventListener('scroll', handleScroll, { passive: true });
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
+
+    const isResultPage = pathname.includes('/result/') || pathname.includes('/api-access') || pathname.includes('/settings') || pathname.includes('/collections') || pathname.includes('/docs');
 
     if (isResultPage) return null;
 
@@ -99,10 +103,6 @@ export function Navbar() {
                 </div>
 
                 <div className="flex items-center gap-2 sm:gap-4">
-                    <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-muted-foreground">
-                        <Command className="w-3 h-3" />
-                        <span>K</span>
-                    </div>
 
                     {!loading && (
                         <>
@@ -162,9 +162,9 @@ export function Navbar() {
             </div>
 
             {/* Scroll Progress Bar */}
-            <motion.div
-                className="absolute bottom-0 left-0 right-0 h-[2px] bg-primary origin-left"
-                style={{ scaleX }}
+            <div
+                className="absolute bottom-0 left-0 h-[2px] bg-primary origin-left transition-transform duration-100"
+                style={{ transform: `scaleX(${scrollProgress})` }}
             />
         </motion.nav>
     );

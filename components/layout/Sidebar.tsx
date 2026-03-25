@@ -9,7 +9,9 @@ import {
     Settings,
     Search,
     ChevronRight,
-    Zap
+    Zap,
+    Sparkles,
+    FileText as Book
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -18,8 +20,10 @@ export function SidebarContent() {
 
     const menuItems = [
         { name: 'Home', icon: Home, href: pathname.includes('/result/') ? pathname : '/' },
+        { name: 'AI Scraper', icon: Sparkles, href: '/ai-scraper' },
         { name: 'Collections', icon: History, href: '/collections' },
         { name: 'API Access', icon: Zap, href: '/api-access' },
+        { name: 'Documentation', icon: Book, href: '/docs' },
         { name: 'Settings', icon: Settings, href: '/settings' },
     ];
 

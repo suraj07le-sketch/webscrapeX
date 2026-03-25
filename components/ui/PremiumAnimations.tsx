@@ -114,10 +114,9 @@ export function IconGlow({ icon, className, color = 'primary' }: IconGlowProps) 
     };
 
     return (
-        <motion.div
-            whileHover={{ scale: 1.15 }}
+        <div
             className={cn(
-                'relative p-3 rounded-xl flex items-center justify-center transition-all group',
+                'relative p-3 rounded-xl flex items-center justify-center transition-all group hover:scale-110',
                 className
             )}
         >
@@ -128,7 +127,7 @@ export function IconGlow({ icon, className, color = 'primary' }: IconGlowProps) 
             <div className="relative z-10 group-hover:text-white transition-colors">
                 {icon}
             </div>
-        </motion.div>
+        </div>
     );
 }
 

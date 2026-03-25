@@ -5,7 +5,7 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { DynamicBackground } from '@/components/ui/DynamicBackground';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Book, Zap, Search, Download, Key, Code, ArrowRight } from 'lucide-react';
+import { Book, Zap, Search, Download, Key, Code, ArrowRight, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
@@ -35,9 +35,10 @@ export default function DocsPage() {
                     </div>
 
                     <Tabs defaultValue="guide" className="w-full">
-                        <TabsList className="bg-white/5 border border-white/10 p-1 rounded-xl w-full max-w-md grid grid-cols-2">
+                        <TabsList className="bg-white/5 border border-white/10 p-1 rounded-xl w-full max-w-lg grid grid-cols-3">
                             <TabsTrigger value="guide" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">User Guide</TabsTrigger>
-                            <TabsTrigger value="api" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">API Access</TabsTrigger>
+                            <TabsTrigger value="api" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Standard API</TabsTrigger>
+                            <TabsTrigger value="ai" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">AI Extraction</TabsTrigger>
                         </TabsList>
 
                         {/* User Guide Tab */}
@@ -129,6 +130,73 @@ export default function DocsPage() {
                                         <Link href="/api-access">
                                             <Button>Get API Key <Code className="w-4 h-4 ml-2" /></Button>
                                         </Link>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+                        {/* AI Extraction Tab */}
+                        <TabsContent value="ai" className="space-y-8 mt-8">
+                            <Card className="bg-card/40 backdrop-blur-md border-white/10 overflow-hidden">
+                                <CardHeader className="border-b border-white/5 bg-white/[0.02]">
+                                    <div className="flex items-center justify-between">
+                                        <div className="space-y-1">
+                                            <CardTitle className="text-2xl flex items-center gap-3">
+                                                <Sparkles className="w-6 h-6 text-primary" />
+                                                AI-Powered Extraction
+                                            </CardTitle>
+                                            <CardDescription>
+                                                Extract structured data using natural language prompts.
+                                            </CardDescription>
+                                        </div>
+                                        <div className="px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-widest border border-primary/20">
+                                            Beta
+                                        </div>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="p-0">
+                                    <div className="p-6 space-y-6">
+                                        <div className="grid gap-4">
+                                            <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                                                <h4 className="text-sm font-bold mb-2 flex items-center gap-2">
+                                                    <code className="px-2 py-0.5 rounded bg-primary/20 text-primary">POST</code>
+                                                    <span>/api/v2/scrape/ai</span>
+                                                </h4>
+                                                <p className="text-sm text-muted-foreground mb-4">
+                                                    Send a URL and a natural language prompt to extract data in JSON format.
+                                                </p>
+                                                <div className="space-y-3">
+                                                    <div className="flex items-center justify-between text-xs font-bold uppercase tracking-widest text-muted-foreground/40">
+                                                        <span>Request Body</span>
+                                                    </div>
+                                                    <pre className="p-4 rounded-xl bg-[#0a0a0a] border border-white/5 text-xs text-primary/80 overflow-x-auto">
+{`{
+  "url": "https://example.com/store",
+  "prompt": "List all items with their prices and ratings"
+}`}
+                                                    </pre>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            <h3 className="font-bold flex items-center gap-2 text-lg">
+                                                <Zap className="w-5 h-5 text-yellow-500" />
+                                                Why use AI Extraction?
+                                            </h3>
+                                            <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                {[
+                                                    { title: "No Selectors", text: "Forget about complex CSS selectors or XPaths. Just ask for what you need." },
+                                                    { title: "Structured Data", text: "Always get a clean JSON response ready for your database or application." },
+                                                    { title: "Context Aware", text: "The AI understands semantics, even when classes and IDs change." },
+                                                    { title: "Dynamic Cleaning", text: "Automatically ignores boilerplate like headers/footers to save tokens." }
+                                                ].map((feat, i) => (
+                                                    <li key={i} className="p-4 rounded-xl bg-white/5 border border-white/10">
+                                                        <h4 className="text-sm font-bold mb-1">{feat.title}</h4>
+                                                        <p className="text-xs text-muted-foreground/60 leading-relaxed">{feat.text}</p>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
                                     </div>
                                 </CardContent>
                             </Card>

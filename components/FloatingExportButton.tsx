@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { Download, FileJson, FileArchive, ImageIcon, Palette, ChevronUp } from 'lucide-react';
+import { Download, FileJson, FileArchive, ImageIcon, Palette, ChevronUp, FileCode } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -82,6 +82,55 @@ export function FloatingExportButton({ data }: FloatingExportButtonProps) {
                 URL.revokeObjectURL(colorUrl);
                 break;
 
+            case 'csv':
+                // Prepare flat data for CSV
+                const csvData = [
+                    { category: 'Metadata', key: 'Title', value: data.metadata?.title },
+                    { category: 'Metadata', key: 'Description', value: data.metadata?.description },
+                    { category: 'Metadata', key: 'URL', value: data.url },
+                    ...data.colors?.map((c, i) => ({ category: 'Design', key: `Color ${i + 1}`, value: c })) || [],
+                    ...data.fonts?.map((f, i) => ({ category: 'Design', key: `Font ${i + 1}`, value: f })) || [],
+                    ...data.technologies?.map((t, i) => ({ category: 'Tech', key: `Technology ${i + 1}`, value: t })) || [],
+                    ...data.links?.map((l, i) => ({ category: 'Links', key: `Link ${i + 1}`, value: l })) || []
+                ];
+
+                const headers = ['category', 'key', 'value'];
+                const csvRows = [
+                    headers.join(','),
+                    ...csvData.map(row => headers.map(header => `"${(row as any)[header]?.toString().replace(/"/g, '""') || ''}"`).join(','))
+                ];
+                
+                const csvBlob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+                const csvUrl = URL.createObjectURL(csvBlob);
+                const csvLink = document.createElement('a');
+                csvLink.href = csvUrl;
+                csvLink.download = `scrape-${data.metadata?.title || 'result'}.csv`;
+                document.body.appendChild(csvLink);
+                csvLink.click();
+                document.body.removeChild(csvLink);
+                URL.revokeObjectURL(csvUrl);
+                break;
+
+            case 'screenshot':
+                if (data.screenshotUrl) {
+                    const ssLink = document.createElement('a');
+                    ssLink.href = data.screenshotUrl;
+                    ssLink.download = `screenshot-${data.metadata?.title || 'result'}.png`;
+                    ssLink.target = '_blank';
+                    ssLink.click();
+                }
+                break;
+
+            case 'pdf':
+                if (data.pdfUrl) {
+                    const pdfLink = document.createElement('a');
+                    pdfLink.href = data.pdfUrl;
+                    pdfLink.download = `snapshot-${data.metadata?.title || 'result'}.pdf`;
+                    pdfLink.target = '_blank';
+                    pdfLink.click();
+                }
+                break;
+
             case 'archive':
                 // Full archive summary
                 const readme = `
@@ -116,6 +165,9 @@ Full raw data is available in the associated JSON export.
 
     const exportOptions = [
         { name: 'Export JSON', icon: FileJson, color: 'text-blue-400', action: 'json' },
+        { name: 'Export CSV', icon: FileCode, color: 'text-yellow-400', action: 'csv' },
+        { name: 'Download Screenshot', icon: ImageIcon, color: 'text-pink-400', action: 'screenshot', disabled: !data?.screenshotUrl },
+        { name: 'Download PDF', icon: FileArchive, color: 'text-red-400', action: 'pdf', disabled: !data?.pdfUrl },
         { name: 'Image Links (TXT)', icon: ImageIcon, color: 'text-emerald-400', action: 'images' },
         { name: 'Color Guide (HTML)', icon: Palette, color: 'text-purple-400', action: 'colors' },
         { name: 'Archive Summary', icon: FileArchive, color: 'text-orange-400', action: 'archive' },
@@ -135,10 +187,14 @@ Full raw data is available in the associated JSON export.
                             <motion.button
                                 key={option.name}
                                 onClick={() => handleExport(option.action)}
+                                disabled={(option as any).disabled}
                                 initial={{ opacity: 0, x: 20 }}
                                 animate={{ opacity: 1, x: 0 }}
                                 transition={{ delay: i * 0.05 }}
-                                className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-background/80 backdrop-blur-2xl border border-white/10 shadow-2xl hover:bg-white/5 transition-all text-sm font-medium whitespace-nowrap group"
+                                className={cn(
+                                    "flex items-center gap-3 px-4 py-3 rounded-2xl bg-background/80 backdrop-blur-2xl border border-white/10 shadow-2xl hover:bg-white/5 transition-all text-sm font-medium whitespace-nowrap group",
+                                    (option as any).disabled && "opacity-50 cursor-not-allowed grayscale"
+                                )}
                             >
                                 <option.icon className={cn("w-4 h-4", option.color)} />
                                 <span>{option.name}</span>

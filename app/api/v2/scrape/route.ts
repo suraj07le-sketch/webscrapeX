@@ -4,6 +4,9 @@ import { scrapeWebsite } from '@/lib/scraper';
 import crypto from 'crypto';
 import { createServerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
+import { cache } from '@/lib/cache';
+import { rateLimiter } from '@/lib/rateLimiter';
+import { withRetry } from '@/lib/retry';
 
 export const runtime = 'nodejs';
 
@@ -71,10 +74,31 @@ export async function POST(req: NextRequest) {
 
     try {
         const body = await req.json().catch(() => ({}));
-        const { url } = body;
+        const { url, mode = 'full', fastMode = true } = body;
 
         if (!url) {
             return NextResponse.json({ error: 'URL is required' }, { status: 400 });
+        }
+
+        // Rate limiting
+        const rateLimitKey = `scrape:${session.user.id}`;
+        const rateLimit = rateLimiter.check(rateLimitKey, 10, 60000); // 10 requests per minute
+        
+        if (!rateLimit.allowed) {
+            return NextResponse.json(
+                { 
+                    error: 'Rate limit exceeded',
+                    remaining: rateLimit.remaining,
+                    resetTime: new Date(rateLimit.resetTime).toISOString()
+                },
+                { 
+                    status: 429,
+                    headers: {
+                        'X-RateLimit-Remaining': rateLimit.remaining.toString(),
+                        'X-RateLimit-Reset': rateLimit.resetTime.toString()
+                    }
+                }
+            );
         }
 
         // Generate ID manually (bypass schema select)
@@ -101,7 +125,17 @@ export async function POST(req: NextRequest) {
             // VERCEL OPTIMIZATION:
             // We set skipDownloads=true to perform FAST discovery (5-10s)
             // The frontend will then call /api/v2/scrape/assets to trigger background downloads
-            await scrapeWebsite(id, url, true);
+            // If mode is social/content, we can be even faster
+            
+            // Use retry logic for scraping
+            await withRetry(
+                () => scrapeWebsite(id, url, true, fastMode, mode),
+                {
+                    maxRetries: 2,
+                    baseDelay: 2000,
+                    maxDelay: 10000
+                }
+            );
         } catch (err) {
             console.error('Scraper V2 Error:', err);
             // We still return 200 if DB insert worked, but status will be 'failed' 

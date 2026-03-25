@@ -26,6 +26,10 @@ import { LinksCard } from '@/components/cards/LinksCard';
 import { TechCard } from '@/components/cards/TechCard';
 import { RawHTMLCard } from '@/components/cards/RawHTMLCard';
 import { InsightsCard } from '@/components/cards/InsightsCard';
+import { SocialCard } from '@/components/cards/SocialCard';
+import { LinkedInCard } from '@/components/cards/LinkedInCard';
+import { ContentAnalysisCard } from '@/components/cards/ContentAnalysisCard';
+import { SEOCard } from '@/components/cards/SEOCard';
 import { FileCode, FileType } from 'lucide-react';
 import { DynamicBackground } from '@/components/ui/DynamicBackground';
 import { FloatingExportButton } from '@/components/FloatingExportButton';
@@ -207,8 +211,27 @@ export default function ResultPage() {
                                 <motion.div id="insights" variants={itemVariants} className="2xl:col-span-2">
                                     <InsightsCard colors={result.colors} techs={result.technologies} metadata={result.metadata} designIntelligence={result.designIntelligence} />
                                 </motion.div>
+
+                                {/* LinkedIn Profile Card */}
+                                {result.linkedinProfile && (
+                                    <motion.div id="linkedin" variants={itemVariants} className="lg:col-span-2 2xl:col-span-2">
+                                        <LinkedInCard profile={result.linkedinProfile} />
+                                    </motion.div>
+                                )}
+
+                                {/* New Social & Content Cards */}
+                                <motion.div id="social" variants={itemVariants}>
+                                    <SocialCard social={result.social} />
+                                </motion.div>
+                                <motion.div id="content" variants={itemVariants} className="lg:col-span-2">
+                                    <ContentAnalysisCard analysis={result.contentAnalysis} />
+                                </motion.div>
+
                                 <motion.div variants={itemVariants}>
                                     <TechCard techs={result.technologies} />
+                                </motion.div>
+                                <motion.div id="seo" variants={itemVariants}>
+                                    <SEOCard seo={result.seo} />
                                 </motion.div>
                                 <motion.div id="colors" variants={itemVariants}>
                                     <ColorPaletteCard colors={result.colors} />

@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Check, Copy, Key, Server, Terminal, Zap } from "lucide-react";
+import { Check, Copy, Key, Server, Terminal, Zap, Globe, Bell, Info } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 export default function ApiAccessPage() {
     const [apiKey, setApiKey] = useState<string>("sk_live_51x...");
@@ -98,6 +99,69 @@ export default function ApiAccessPage() {
                         </Card>
 
                         {/* Integration Guide */}
+                        {/* ... existing card ... */}
+
+                        {/* Proxy Management (Feature 8) */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <Card className="border-white/10 bg-card/40 backdrop-blur-md">
+                                <CardHeader>
+                                    <div className="flex items-center justify-between">
+                                        <CardTitle className="flex items-center gap-2">
+                                            <Globe className="w-5 h-5 text-emerald-500" />
+                                            Proxy Rotation
+                                        </CardTitle>
+                                        <div className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[8px] font-black uppercase tracking-tighter">Enterprise</div>
+                                    </div>
+                                    <CardDescription>
+                                        Automatically rotate IP addresses to bypass rate limits.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10">
+                                        <div className="space-y-0.5">
+                                            <div className="text-sm font-bold">Residential Proxies</div>
+                                            <div className="text-[10px] text-muted-foreground">High anonymity, low detection</div>
+                                        </div>
+                                        <Switch disabled checked={true} />
+                                    </div>
+                                    <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10 opacity-50">
+                                        <div className="space-y-0.5">
+                                            <div className="text-sm font-bold">Custom Proxy List</div>
+                                            <div className="text-[10px] text-muted-foreground">Use your own proxy providers</div>
+                                        </div>
+                                        <Switch disabled />
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            <Card className="border-white/10 bg-card/40 backdrop-blur-md">
+                                <CardHeader>
+                                    <div className="flex items-center justify-between">
+                                        <CardTitle className="flex items-center gap-2">
+                                            <Bell className="w-5 h-5 text-blue-500" />
+                                            Global Webhooks
+                                        </CardTitle>
+                                        <div className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 text-[8px] font-black uppercase tracking-tighter">Feature 4</div>
+                                    </div>
+                                    <CardDescription>
+                                        Receive real-time notifications for automated jobs.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40">Default Endpoint</label>
+                                        <div className="flex gap-2">
+                                            <Input placeholder="https://api.yourdomain.com/webhooks/scrapex" className="bg-white/5 border-white/10 text-xs" />
+                                            <Button size="sm" variant="outline" className="border-white/10">Save</Button>
+                                        </div>
+                                    </div>
+                                    <div className="text-[10px] text-muted-foreground flex items-center gap-2">
+                                        <Info className="w-3 h-3 text-primary" />
+                                        <span>Webhooks are signed using your API Key for security.</span>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
                         <Card className="border-white/10 bg-card/40 backdrop-blur-md overflow-hidden">
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
